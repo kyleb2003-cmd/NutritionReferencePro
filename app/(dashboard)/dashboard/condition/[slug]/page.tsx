@@ -1,8 +1,13 @@
 'use client'
 
+import type { ReactElement } from 'react'
+import type { DocumentProps } from '@react-pdf/renderer'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import HandoutPDF, { type PDFSection } from '@/components/pdf/HandoutPDF'
+import HandoutPreviewModal from '@/components/pdf/HandoutPreviewModal'
 import { supabase } from '@/lib/supabase-client'
+import { blobToDataUrl, downloadPdf } from '@/lib/pdf'
 
 type Content = {
   overview?: string | null
@@ -45,6 +50,12 @@ export default function ConditionBuilderPage() {
   const [selected, setSelected] = useState<SelectedSections>(() => ({ overview: true, shopping_list: true }))
   const [patientName, setPatientName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [patientError, setPatientError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<ReactElement<DocumentProps> | null>(null)
+  const [previewFilename, setPreviewFilename] = useState<string>('handout.pdf')
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -83,6 +94,102 @@ export default function ConditionBuilderPage() {
 
   const sectionOptions = useMemo(() => SECTIONS, [])
 
+  async function getBranding() {
+    const { data: sess } = await supabase.auth.getSession()
+    const uid = sess.session?.user?.id
+    if (!uid) {
+      return { clinicName: '', footerText: '', logoDataUrl: null as string | null }
+    }
+
+    const { data } = await supabase
+      .from('clinics')
+      .select('clinic_name, footer_text, logo_path')
+      .eq('id', uid)
+      .maybeSingle()
+
+    let logoDataUrl: string | null = null
+    if (data?.logo_path) {
+      const result = await supabase.storage.from('branding').download(data.logo_path)
+      if (!result.error && result.data) {
+        logoDataUrl = await blobToDataUrl(result.data)
+      }
+    }
+
+    return {
+      clinicName: data?.clinic_name || '',
+      footerText: data?.footer_text || '',
+      logoDataUrl,
+    }
+  }
+
+  function buildSections(content: Content | null | undefined, selections: SelectedSections): PDFSection[] {
+    if (!content) return []
+    const sections: PDFSection[] = []
+    const push = (key: keyof Content, label: string) => {
+      if (selections[key]) {
+        sections.push({ label, text: content[key] || '' })
+      }
+    }
+    push('overview', 'Overview')
+    push('mealplan_1400', 'Meal Plan 1400 kcal')
+    push('mealplan_1800', 'Meal Plan 1800 kcal')
+    push('mealplan_2200', 'Meal Plan 2200 kcal')
+    push('mealplan_2600', 'Meal Plan 2600 kcal')
+    push('shopping_list', 'Shopping List')
+    push('rd_referral', 'RD Referral')
+    return sections
+  }
+
+  async function onPreviewPdf() {
+    if (!condition) return
+    if (!patientName.trim()) {
+      setPatientError('Patient name is required to generate the handout.')
+      return
+    }
+    setPatientError(null)
+    setExporting(true)
+    try {
+      const branding = await getBranding()
+      const printedOn = new Date().toLocaleDateString()
+      const sections = buildSections(condition.content ?? null, selected)
+
+      const doc = (
+        <HandoutPDF
+          clinicName={branding.clinicName}
+          footerText={branding.footerText}
+          logoDataUrl={branding.logoDataUrl}
+          conditionName={condition.name}
+          patientName={patientName.trim()}
+          printedOn={printedOn}
+          sections={sections}
+        />
+      ) as ReactElement<DocumentProps>
+
+      const safeSlug = (condition.slug || 'handout').replace(/[^a-z0-9-]/gi, '-').toLowerCase()
+      setPreviewFilename(`${safeSlug}-handout.pdf`)
+      setPreviewDoc(doc)
+      setPreviewOpen(true)
+    } catch (exportError) {
+      console.error('PDF export failed:', exportError)
+      alert('Oops, something went wrong preparing the PDF. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function onDownloadPdf() {
+    if (!previewDoc) return
+    setDownloading(true)
+    try {
+      await downloadPdf(previewDoc, previewFilename)
+    } catch (downloadError) {
+      console.error('PDF download failed:', downloadError)
+      alert('Unable to download the PDF. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <>
       <div className="space-y-4 lg:col-start-2 lg:row-start-1">
@@ -111,13 +218,20 @@ export default function ConditionBuilderPage() {
           <h3 className="font-medium">Handout Builder</h3>
           <div className="space-y-3">
             <label className="block text-sm">
-              <span className="text-gray-600">Patient name (optional)</span>
+              <span className="text-gray-600">Patient name</span>
               <input
                 className="mt-1 w-full rounded border px-3 py-2 text-sm"
                 value={patientName}
-                onChange={(event) => setPatientName(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setPatientName(value)
+                  if (value.trim()) {
+                    setPatientError(null)
+                  }
+                }}
                 placeholder="e.g., Jane Smith"
               />
+              {patientError ? <p className="mt-1 text-xs text-red-600">{patientError}</p> : null}
             </label>
             <div className="space-y-2 border-t pt-2 text-sm">
               {sectionOptions.map((section) => (
@@ -135,17 +249,26 @@ export default function ConditionBuilderPage() {
             </div>
           </div>
           <button
-            className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/90"
-            onClick={() => alert('Export to PDF coming soon')}
-            disabled={loading || !condition}
+            className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/90 disabled:opacity-60"
+            onClick={onPreviewPdf}
+            disabled={loading || !condition || exporting || !patientName.trim()}
           >
-            Export PDF
+            {exporting ? 'Preparing…' : 'Preview PDF'}
           </button>
           <p className="text-xs text-gray-500">
             Your clinic logo and footer will appear automatically when you export the PDF.
           </p>
         </div>
       </aside>
+
+      <HandoutPreviewModal
+        open={previewOpen}
+        document={previewDoc}
+        filename={previewFilename}
+        onClose={() => setPreviewOpen(false)}
+        onDownload={onDownloadPdf}
+        downloading={downloading}
+      />
     </>
   )
 }

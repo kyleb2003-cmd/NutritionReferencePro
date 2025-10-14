@@ -1,0 +1,196 @@
+import type { ReactElement } from 'react'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
+
+export type PDFSection = { label: string; text?: string | null }
+
+export const styles = StyleSheet.create({
+  page: { padding: 36, fontSize: 11, lineHeight: 1.35 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  logo: { width: 64, height: 64, marginRight: 16, objectFit: 'contain' },
+  titleWrap: { flexGrow: 1 },
+  appName: { fontSize: 10, color: '#6B7280' },
+  clinicName: { fontSize: 14, marginBottom: 2, fontWeight: 700 },
+  condition: { fontSize: 16, marginTop: 4, fontWeight: 700 },
+  meta: { fontSize: 10, color: '#374151', marginTop: 2 },
+  heading1: { marginTop: 14, marginBottom: 6, fontSize: 14, fontWeight: 700 },
+  heading2: { marginTop: 12, marginBottom: 6, fontSize: 13, fontWeight: 700 },
+  heading3: { marginTop: 10, marginBottom: 5, fontSize: 12, fontWeight: 700 },
+  p: { marginBottom: 8, lineHeight: 1.4 },
+  list: { marginLeft: 14, marginBottom: 8 },
+  listItem: { flexDirection: 'row', marginBottom: 4 },
+  listBullet: { width: 12, fontWeight: 700 },
+  listText: { flex: 1, lineHeight: 1.4 },
+  footer: {
+    position: 'absolute',
+    bottom: 24,
+    left: 36,
+    right: 36,
+    fontSize: 9,
+    color: '#4B5563',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 6,
+    lineHeight: 1.4,
+  },
+})
+
+type MarkdownBlock =
+  | { type: 'heading'; depth: 1 | 2 | 3; text: string }
+  | { type: 'paragraph'; text: string }
+  | { type: 'list'; ordered: boolean; items: { bullet: string; text: string }[] }
+
+function parseMarkdown(text?: string | null): MarkdownBlock[] {
+  if (!text) return []
+  const blocks: MarkdownBlock[] = []
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+
+  let paragraph: string[] = []
+  let list: { ordered: boolean; items: { bullet: string; text: string }[] } | null = null
+
+  const flushParagraph = () => {
+    if (paragraph.length > 0) {
+      blocks.push({ type: 'paragraph', text: paragraph.join('\n') })
+      paragraph = []
+    }
+  }
+
+  const flushList = () => {
+    if (list && list.items.length > 0) {
+      blocks.push({ type: 'list', ordered: list.ordered, items: list.items })
+    }
+    list = null
+  }
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim()
+    if (!line) {
+      flushParagraph()
+      flushList()
+      return
+    }
+
+    const headingMatch = line.match(/^(#{1,3})\s+(.*)$/)
+    if (headingMatch) {
+      flushParagraph()
+      flushList()
+      const depth = headingMatch[1].length as 1 | 2 | 3
+      const textContent = headingMatch[2].trim()
+      blocks.push({ type: 'heading', depth, text: textContent })
+      return
+    }
+
+    const bulletMatch = line.match(/^[-*]\s+(.*)$/)
+    if (bulletMatch) {
+      flushParagraph()
+      const textContent = bulletMatch[1].trim()
+      if (!list) {
+        list = { ordered: false, items: [] }
+      }
+      if (!list.ordered) {
+        list.items.push({ bullet: '•', text: textContent })
+      } else {
+        list.items.push({ bullet: String(list.items.length + 1) + '.', text: textContent })
+      }
+      return
+    }
+
+    const orderedMatch = line.match(/^(\d+)\.\s+(.*)$/)
+    if (orderedMatch) {
+      flushParagraph()
+      const textContent = orderedMatch[2].trim()
+      const bullet = `${orderedMatch[1]}.`
+      if (!list || !list.ordered) {
+        flushList()
+        list = { ordered: true, items: [] }
+      }
+      list.items.push({ bullet, text: textContent })
+      return
+    }
+
+    flushList()
+    paragraph.push(rawLine.trimEnd())
+  })
+
+  flushParagraph()
+  flushList()
+
+  return blocks
+}
+
+function renderMarkdownBlocks(blocks: MarkdownBlock[]): ReactElement[] {
+  return blocks.map((block, index) => {
+    if (block.type === 'heading') {
+      const style =
+        block.depth === 1 ? styles.heading1 : block.depth === 2 ? styles.heading2 : styles.heading3
+      return (
+        <Text key={index} style={style}>
+          {block.text}
+        </Text>
+      )
+    }
+
+    if (block.type === 'list') {
+      return (
+        <View key={index} style={styles.list}>
+          {block.items.map((item, idx) => (
+            <View key={idx} style={styles.listItem}>
+              <Text style={styles.listBullet}>{item.bullet}</Text>
+              <Text style={styles.listText}>{item.text}</Text>
+            </View>
+          ))}
+        </View>
+      )
+    }
+
+    return (
+      <Text key={index} style={styles.p}>
+        {block.text}
+      </Text>
+    )
+  })
+}
+
+export default function HandoutPDF(props: {
+  clinicName?: string
+  footerText?: string
+  logoDataUrl?: string | null
+  conditionName: string
+  patientName: string
+  printedOn: string
+  sections: PDFSection[]
+}) {
+  const { clinicName, footerText, logoDataUrl, conditionName, patientName, printedOn, sections } = props
+  const printableSections = sections.filter((section) => (section.text || '').trim().length > 0)
+  const footerLines = [
+    `Generated by Nutrition Reference Pro • Printed on ${printedOn}`,
+    footerText?.trim() || '',
+  ].filter(Boolean)
+
+  return (
+    <Document>
+      <Page size="LETTER" style={styles.page} wrap>
+        <View style={styles.headerRow}>
+          {logoDataUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image style={styles.logo} src={logoDataUrl} />
+          ) : null}
+          <View style={styles.titleWrap}>
+            {clinicName ? <Text style={styles.clinicName}>{clinicName}</Text> : null}
+            <Text style={styles.appName}>Nutrition Reference Pro</Text>
+            <Text style={styles.condition}>{conditionName}</Text>
+            <Text style={styles.meta}>Patient: {patientName}</Text>
+          </View>
+        </View>
+
+        {printableSections.map((section, index) => (
+          <View key={index}>
+            <Text style={styles.heading2}>{section.label}</Text>
+            {renderMarkdownBlocks(parseMarkdown(section.text))}
+          </View>
+        ))}
+
+        {footerLines.length > 0 ? <Text style={styles.footer}>{footerLines.join('\n')}</Text> : null}
+      </Page>
+    </Document>
+  )
+}
