@@ -155,24 +155,26 @@ export default function BrandingPage() {
       <div className="max-w-3xl space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Clinic Branding</h1>
-          <p className="text-sm text-gray-600">Upload your logo and set the footer that appears on exported PDFs.</p>
+          <p className="text-sm text-gray-800">
+            Upload your logo and set the footer that appears on exported PDFs.
+          </p>
         </div>
 
         <form onSubmit={onSave} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium">Clinic name</span>
+              <span className="text-sm font-medium text-gray-900">Clinic name</span>
               <input
-                className="mt-1 w-full rounded border px-3 py-2"
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
                 value={clinicName}
                 onChange={(e) => setClinicName(e.target.value)}
                 placeholder="e.g., Eastside Family Clinic"
               />
             </label>
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium">Footer text</span>
+              <span className="text-sm font-medium text-gray-900">Footer text</span>
               <textarea
-                className="mt-1 w-full rounded border px-3 py-2 h-24"
+                className="mt-1 h-24 w-full rounded border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
                 value={footerText}
                 onChange={(e) => setFooterText(e.target.value)}
                 placeholder="Custom footer text for PDFs"
@@ -181,23 +183,28 @@ export default function BrandingPage() {
           </div>
 
           <div className="space-y-3">
-            <span className="text-sm font-medium">Logo</span>
+            <span className="text-sm font-medium text-gray-900">Logo</span>
             <div className="flex items-start gap-4">
-              <div className="w-40 h-40 rounded-xl border bg-white flex items-center justify-center overflow-hidden">
+              <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-white">
                 {logoPreviewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img alt="Logo preview" src={logoPreviewUrl} className="max-w-full max-h-full" />
                 ) : (
-                  <span className="text-xs text-gray-500">No logo</span>
+                  <span className="px-3 text-center text-xs font-medium text-gray-700">No logo uploaded</span>
                 )}
               </div>
               <div className="space-y-2">
-                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onSelectLogo} />
-                {logoPath && <p className="text-xs text-gray-500 break-all">Stored as: {logoPath}</p>}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={onSelectLogo}
+                  className="text-sm text-gray-800 file:mr-2 file:cursor-pointer file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-900 hover:file:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                />
+                {logoPath && <p className="break-all text-xs text-gray-700">Stored as: {logoPath}</p>}
                 {logoPath && (
                   <button
                     type="button"
-                    className="text-sm underline text-red-600"
+                    className="text-sm font-semibold text-red-600 underline hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
                     onClick={async () => {
                       if (!logoPath) return
                       setBusy(true)
@@ -220,10 +227,13 @@ export default function BrandingPage() {
           </div>
 
           <div className="flex gap-3 items-center">
-            <button className="rounded-lg bg-black text-white px-4 py-2 disabled:opacity-60" disabled={busy}>
+            <button
+              className="inline-flex cursor-pointer items-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 disabled:cursor-not-allowed disabled:bg-gray-600"
+              disabled={busy}
+            >
               {busy ? 'Saving...' : 'Save changes'}
             </button>
-            <span className="text-sm text-gray-600">{status}</span>
+            <span className="text-sm text-gray-700">{status}</span>
             {error && <span className="text-sm text-red-600">Error: {error}</span>}
           </div>
         </form>

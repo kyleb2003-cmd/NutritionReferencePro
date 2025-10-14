@@ -37,11 +37,11 @@ export default function SignOutPage() {
   }, [r])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white to-gray-50">
-      <div className="text-center space-y-3">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white via-white to-slate-50">
+      <div className="space-y-3 text-center">
         <h1 className="text-2xl font-semibold">Nutrition Reference Pro</h1>
-        {error ? <p className="text-red-600 text-sm">{error}</p> : <p className="text-gray-700">{message}</p>}
-        <p className="text-sm text-gray-500">Redirecting to the home page…</p>
+        {error ? <p className="text-sm text-red-600">{error}</p> : <p className="text-gray-800">{message}</p>}
+        <p className="text-sm text-gray-700">Redirecting to the home page…</p>
       </div>
     </main>
   )

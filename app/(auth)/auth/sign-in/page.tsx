@@ -24,11 +24,11 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="max-w-md mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
+    <main className="mx-auto max-w-md space-y-5 px-6 py-8 text-gray-900">
+      <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
       <form onSubmit={onSubmit} className="space-y-3">
         <input
-          className="w-full border rounded p-2"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
           type="email"
           placeholder="you@example.com"
           value={email}
@@ -36,7 +36,7 @@ export default function SignInPage() {
           required
         />
         <input
-          className="w-full border rounded p-2"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
           type="password"
           placeholder="Your password"
           value={password}
@@ -45,17 +45,17 @@ export default function SignInPage() {
         />
         {err && <p className="text-sm text-red-600">{err}</p>}
         <button
-          className="w-full rounded bg-black text-white py-2 disabled:opacity-50"
+          className="w-full cursor-pointer rounded-md bg-black py-2 text-sm font-semibold text-white transition hover:bg-black/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 disabled:cursor-not-allowed disabled:bg-gray-600"
           disabled={loading}
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
-      <div className="text-sm text-gray-600 space-x-3">
-        <a href="/auth/forgot-password" className="underline">
+      <div className="flex flex-wrap gap-3 text-sm font-medium text-gray-800">
+        <a href="/auth/forgot-password" className="underline decoration-2">
           Forgot password?
         </a>
-        <a href="/auth/sign-up" className="underline">
+        <a href="/auth/sign-up" className="underline decoration-2">
           Create account
         </a>
       </div>

@@ -68,7 +68,7 @@ export default function ConditionsList() {
       <nav className="space-y-5">
         {filtered.map((group) => (
           <div key={group.id}>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{group.name}</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-700">{group.name}</div>
             <ul className="space-y-1">
               {(group.conditions || []).map((cond) => {
                 const href = `/dashboard/condition/${cond.slug}`
@@ -89,7 +89,7 @@ export default function ConditionsList() {
             </ul>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-sm text-gray-500">No matches.</p>}
+        {filtered.length === 0 && <p className="text-sm text-gray-700">No matches.</p>}
       </nav>
     </div>
   )

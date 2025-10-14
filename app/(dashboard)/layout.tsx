@@ -25,27 +25,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b bg-white/80 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-3">
           <div className="flex items-center gap-6">
-            <a href="/dashboard" className="text-lg font-semibold">
+            <a
+              href="/dashboard"
+              className="text-lg font-semibold text-gray-900 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+            >
               Nutrition Reference Pro
             </a>
-            <nav className="hidden items-center gap-5 text-sm text-gray-600 md:flex">
-              <a className="hover:underline" href="/dashboard">
+            <nav className="hidden items-center gap-5 text-sm font-medium text-gray-800 md:flex">
+              <a
+                className="inline-flex items-center rounded-md px-2 py-1 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                href="/dashboard"
+              >
                 Dashboard
               </a>
-              <a className="hover:underline" href="/dashboard/branding">
+              <a
+                className="inline-flex items-center rounded-md px-2 py-1 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                href="/dashboard/branding"
+              >
                 Branding
               </a>
             </nav>
           </div>
-          <div className="flex items-center gap-3">
-            <a href="/auth/sign-out" className="text-sm underline text-gray-600 hover:text-gray-900">
-              Sign out
-            </a>
-            <SignOutButton />
-          </div>
+          <SignOutButton />
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">{children}</div>

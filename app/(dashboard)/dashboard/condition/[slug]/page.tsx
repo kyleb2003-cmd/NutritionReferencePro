@@ -195,18 +195,18 @@ export default function ConditionBuilderPage() {
       <div className="space-y-4 lg:col-start-2 lg:row-start-1">
         <div className="flex flex-col gap-2">
           <h2 className="text-2xl font-semibold">{condition?.name ?? 'Loading condition...'}</h2>
-          <p className="text-gray-700">
+          <p className="text-gray-800">
             Use the Handout Builder on the right to pick sections and export a PDF branded for your clinic.
           </p>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
-        {loading && !condition && <p className="text-sm text-gray-500">Loading condition content…</p>}
+        {loading && !condition && <p className="text-sm text-gray-700">Loading condition content…</p>}
 
         {condition?.content?.overview && (
           <div className="space-y-3">
             <h3 className="text-lg font-semibold">Overview preview</h3>
-            <pre className="whitespace-pre-wrap rounded border bg-gray-50 p-3 text-sm text-gray-800">
+            <pre className="whitespace-pre-wrap rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
               {condition.content.overview}
             </pre>
           </div>
@@ -217,10 +217,10 @@ export default function ConditionBuilderPage() {
         <div className="sticky top-24 space-y-4 rounded-xl border bg-white p-4 shadow-sm">
           <h3 className="font-medium">Handout Builder</h3>
           <div className="space-y-3">
-            <label className="block text-sm">
-              <span className="text-gray-600">Patient name</span>
+            <label className="block text-sm font-medium text-gray-900">
+              <span>Patient name</span>
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-gray-500"
                 value={patientName}
                 onChange={(event) => {
                   const value = event.target.value
@@ -233,7 +233,7 @@ export default function ConditionBuilderPage() {
               />
               {patientError ? <p className="mt-1 text-xs text-red-600">{patientError}</p> : null}
             </label>
-            <div className="space-y-2 border-t pt-2 text-sm">
+            <div className="space-y-2 border-t border-gray-200 pt-2 text-sm">
               {sectionOptions.map((section) => (
                 <label key={section.key} className="flex items-center gap-2">
                   <input
@@ -255,7 +255,7 @@ export default function ConditionBuilderPage() {
           >
             {exporting ? 'Preparing…' : 'Preview PDF'}
           </button>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-700">
             Your clinic logo and footer will appear automatically when you export the PDF.
           </p>
         </div>

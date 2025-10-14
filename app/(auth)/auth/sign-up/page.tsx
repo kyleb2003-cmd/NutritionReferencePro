@@ -29,11 +29,11 @@ export default function SignUpPage() {
   }
 
   return (
-    <main className="max-w-md mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Create account</h1>
+    <main className="mx-auto max-w-md space-y-5 px-6 py-8 text-gray-900">
+      <h1 className="text-2xl font-semibold text-gray-900">Create account</h1>
       <form onSubmit={onSubmit} className="space-y-3">
         <input
-          className="w-full border rounded p-2"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
           type="email"
           placeholder="you@example.com"
           value={email}
@@ -41,7 +41,7 @@ export default function SignUpPage() {
           required
         />
         <input
-          className="w-full border rounded p-2"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
           type="password"
           placeholder="Create a password"
           value={password}
@@ -51,14 +51,14 @@ export default function SignUpPage() {
         {err && <p className="text-sm text-red-600">{err}</p>}
         {msg && <p className="text-sm text-green-700">{msg}</p>}
         <button
-          className="w-full rounded bg-black text-white py-2 disabled:opacity-50"
+          className="w-full cursor-pointer rounded-md bg-black py-2 text-sm font-semibold text-white transition hover:bg-black/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 disabled:cursor-not-allowed disabled:bg-gray-600"
           disabled={loading}
         >
           {loading ? 'Creating…' : 'Create account'}
         </button>
       </form>
-      <div className="text-sm text-gray-600">
-        <a className="underline" href="/auth/sign-in">
+      <div className="text-sm font-medium text-gray-800">
+        <a className="underline decoration-2" href="/auth/sign-in">
           Already have an account? Sign in
         </a>
       </div>

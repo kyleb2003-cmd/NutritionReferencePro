@@ -8,7 +8,7 @@ export default function SignOutButton() {
     <button
       type="button"
       aria-label="Sign out"
-      className="rounded bg-gray-200 hover:bg-gray-300 px-3 py-1 text-sm transition disabled:opacity-60"
+      className="inline-flex cursor-pointer items-center rounded-md bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 disabled:cursor-not-allowed disabled:bg-gray-600"
       disabled={busy}
       onClick={async () => {
         try {

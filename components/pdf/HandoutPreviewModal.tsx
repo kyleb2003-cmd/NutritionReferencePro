@@ -33,7 +33,7 @@ export default function HandoutPreviewModal(props: {
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold leading-tight">Handout Preview</h2>
-            <p className="text-xs text-gray-500">{filename}</p>
+            <p className="text-xs text-gray-700">{filename}</p>
           </div>
           <div className="flex items-center gap-3">
             <button
