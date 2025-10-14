@@ -143,6 +143,7 @@ dist
 # Misc
 .DS_Store
 *.pem
+.supabase/
 
 # Environment files
 .env*
