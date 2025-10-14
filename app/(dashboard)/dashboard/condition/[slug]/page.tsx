@@ -4,6 +4,8 @@ import type { ReactElement } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import HandoutPDF, { type PDFSection } from '@/components/pdf/HandoutPDF'
 import HandoutPreviewModal from '@/components/pdf/HandoutPreviewModal'
 import { supabase } from '@/lib/supabase-client'
@@ -17,6 +19,7 @@ type Content = {
   mealplan_2600?: string | null
   shopping_list?: string | null
   rd_referral?: string | null
+  practitioner_notes?: string | null
 }
 
 type ConditionRow = {
@@ -24,6 +27,14 @@ type ConditionRow = {
   name: string
   slug: string
   content?: Content | null
+  citations?: Citation[]
+}
+
+type Citation = {
+  id: number
+  citation: string
+  url: string | null
+  sort_order: number | null
 }
 
 type SelectedSections = Record<string, boolean>
@@ -65,9 +76,11 @@ export default function ConditionBuilderPage() {
       const { data, error } = await supabase
         .from('conditions')
         .select(
-          'id,name,slug,content:condition_content ( overview,mealplan_1400,mealplan_1800,mealplan_2200,mealplan_2600,shopping_list,rd_referral )',
+          'id,name,slug,content:condition_content ( practitioner_notes,overview,mealplan_1400,mealplan_1800,mealplan_2200,mealplan_2600,shopping_list,rd_referral ),citations:condition_citations ( id,citation,url,sort_order )',
         )
         .eq('slug', slug)
+        .order('sort_order', { referencedTable: 'condition_citations', ascending: true })
+        .order('id', { referencedTable: 'condition_citations', ascending: true })
         .maybeSingle()
 
       if (!active) return
@@ -192,9 +205,9 @@ export default function ConditionBuilderPage() {
 
   return (
     <>
-      <div className="space-y-4 lg:col-start-2 lg:row-start-1">
+      <div className="space-y-6 lg:col-start-2 lg:row-start-1">
         <div className="flex flex-col gap-2">
-          <h2 className="text-2xl font-semibold">{condition?.name ?? 'Loading condition...'}</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">{condition?.name ?? 'Loading condition...'}</h2>
           <p className="text-gray-800">
             Use the Handout Builder on the right to pick sections and export a PDF branded for your clinic.
           </p>
@@ -203,13 +216,51 @@ export default function ConditionBuilderPage() {
 
         {loading && !condition && <p className="text-sm text-gray-700">Loading condition content…</p>}
 
+        <section className="space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900">Practitioner Notes</h3>
+          {condition?.content?.practitioner_notes ? (
+            <div className="prose prose-sm max-w-none text-gray-800">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{condition.content.practitioner_notes}</ReactMarkdown>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-700">Add practitioner notes in Supabase Studio.</p>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900">Citations</h3>
+          {condition?.citations && condition.citations.length > 0 ? (
+            <ol className="space-y-2 text-sm text-gray-800">
+              {condition.citations.map((citation, index) => (
+                <li key={citation.id} className="pl-1">
+                  <span className="font-semibold text-gray-900">{index + 1}. </span>
+                  {citation.url ? (
+                    <a
+                      href={citation.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="cursor-pointer font-medium text-gray-900 underline decoration-2 underline-offset-2 transition hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                    >
+                      {citation.citation}
+                    </a>
+                  ) : (
+                    <span>{citation.citation}</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-gray-700">No citations added yet.</p>
+          )}
+        </section>
+
         {condition?.content?.overview && (
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold">Overview preview</h3>
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold text-gray-900">Overview preview</h3>
             <pre className="whitespace-pre-wrap rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
               {condition.content.overview}
             </pre>
-          </div>
+          </section>
         )}
       </div>
 
