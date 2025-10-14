@@ -18,9 +18,10 @@ export default function SignOutPage() {
         if (error) throw error
         if (!active) return
         setMessage('You’ve been signed out.')
+        // Redirect after 1.5 seconds
         redirectTimer = setTimeout(() => {
           r.replace('/')
-        }, 2000)
+        }, 1500)
       } catch (err) {
         if (!active) return
         const message =
