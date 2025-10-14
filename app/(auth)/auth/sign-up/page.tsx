@@ -24,7 +24,7 @@ export default function SignUpPage() {
     }
     // If Confirm Email is OFF, session is created and we can route to app.
     // If it's ON, user must confirm via email first.
-    if (data.session) r.replace('/')
+    if (data.session) r.replace('/dashboard')
     else setMsg('Check your email to confirm your account.')
   }
 

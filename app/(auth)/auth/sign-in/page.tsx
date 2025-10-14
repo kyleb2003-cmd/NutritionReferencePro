@@ -20,7 +20,7 @@ export default function SignInPage() {
       setErr(error.message)
       return
     }
-    r.replace('/') // go to dashboard/home
+    r.replace('/dashboard') // go to protected app
   }
 
   return (
