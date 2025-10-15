@@ -281,7 +281,7 @@ export default function ConditionBuilderPage() {
           <h3 className="font-medium">Handout Builder</h3>
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-900">
-              <span>Patient name</span>
+              <span>Patient name (required)</span>
               <input
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-gray-500"
                 value={patientName}

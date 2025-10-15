@@ -1,21 +1,62 @@
+
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import type { ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
 type GroupRow = { id: number; name: string; slug: string }
 type ConditionRow = { id: number; name: string; slug: string; group_id: number }
 
 type JoinedGroup = GroupRow & { conditions: ConditionRow[] }
+type FlatCondition = ConditionRow & { groupId: number }
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebounced(value), delay)
+    return () => window.clearTimeout(handle)
+  }, [value, delay])
+  return debounced
+}
+
+function escapeRegExp(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function highlightMatch(text: string, query: string): ReactNode {
+  if (!query) return text
+  const regex = new RegExp(escapeRegExp(query), 'ig')
+  const parts = text.split(regex)
+  const matches = text.match(regex)
+  if (!matches) return text
+  const result: ReactNode[] = []
+  parts.forEach((part, index) => {
+    result.push(part)
+    if (matches[index]) {
+      result.push(
+        <mark key={`${matches[index]}-${index}`} className="rounded-sm bg-yellow-200 px-0.5">
+          {matches[index]}
+        </mark>,
+      )
+    }
+  })
+  return result
+}
 
 export default function ConditionsList() {
   const pathname = usePathname()
+  const router = useRouter()
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [conditions, setConditions] = useState<ConditionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const debouncedQuery = useDebouncedValue(q, 300)
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1)
+  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([])
+  const listboxId = 'conditions-listbox'
 
   useEffect(() => {
     let active = true
@@ -80,7 +121,7 @@ export default function ConditionsList() {
   }, [groups, conditions])
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase()
+    const needle = debouncedQuery.trim().toLowerCase()
     if (!needle) return joined
     return joined
       .map((group) => ({
@@ -90,7 +131,63 @@ export default function ConditionsList() {
         ),
       }))
       .filter((group) => group.conditions.length > 0)
-  }, [joined, q])
+  }, [joined, debouncedQuery])
+
+  const flat = useMemo<FlatCondition[]>(() => {
+    return filtered.flatMap((group) =>
+      group.conditions.map((condition) => ({ ...condition, groupId: group.id })),
+    )
+  }, [filtered])
+
+  const indexById = useMemo(() => {
+    const map = new Map<number, number>()
+    flat.forEach((item, idx) => map.set(item.id, idx))
+    return map
+  }, [flat])
+
+  useEffect(() => {
+    setFocusedIndex(-1)
+  }, [debouncedQuery])
+
+  useEffect(() => {
+    if (focusedIndex >= flat.length) {
+      setFocusedIndex(flat.length ? flat.length - 1 : -1)
+    }
+  }, [flat.length, focusedIndex])
+
+  useEffect(() => {
+    if (focusedIndex < 0) return
+    const node = itemRefs.current[focusedIndex]
+    if (node) {
+      node.scrollIntoView({ block: 'nearest' })
+    }
+  }, [focusedIndex])
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!flat.length) return
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setFocusedIndex((prev) => {
+        const next = prev + 1
+        return next >= flat.length ? 0 : next
+      })
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setFocusedIndex((prev) => {
+        const next = prev - 1
+        return next < 0 ? flat.length - 1 : next
+      })
+    } else if (event.key === 'Enter') {
+      if (focusedIndex >= 0 && flat[focusedIndex]) {
+        event.preventDefault()
+        router.push(`/dashboard/condition/${flat[focusedIndex].slug}`)
+      }
+    }
+  }
+
+  const activeDescendant = focusedIndex >= 0 && flat[focusedIndex]
+    ? `condition-option-${flat[focusedIndex].id}`
+    : undefined
 
   return (
     <div className="space-y-4">
@@ -104,6 +201,9 @@ export default function ConditionsList() {
           placeholder="Search conditions..."
           value={q}
           onChange={(event) => setQ(event.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          aria-controls={listboxId}
+          aria-activedescendant={activeDescendant}
         />
       </div>
 
@@ -117,23 +217,38 @@ export default function ConditionsList() {
       ) : error ? (
         <div className="text-sm text-red-600">Couldn&apos;t load conditions.</div>
       ) : (
-        <nav className="space-y-5">
+        <nav id={listboxId} role="listbox" className="space-y-5">
           {filtered.map((group) => (
             <div key={group.id}>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-700">{group.name}</div>
+              <div className="sticky top-16 z-10 mb-2 bg-white pb-1 text-xs font-semibold uppercase tracking-wide text-gray-700">
+                {highlightMatch(group.name, debouncedQuery)}
+              </div>
               <ul className="space-y-1">
                 {group.conditions.map((cond) => {
                   const href = `/dashboard/condition/${cond.slug}`
                   const isActive = pathname?.startsWith(href)
+                  const flatIndex = indexById.get(cond.id) ?? -1
+                  const isFocused = flatIndex === focusedIndex
                   return (
                     <li key={cond.id}>
                       <a
+                        id={`condition-option-${cond.id}`}
+                        ref={(node) => {
+                          if (flatIndex >= 0) itemRefs.current[flatIndex] = node
+                        }}
                         href={href}
-                        className={`block rounded px-2 py-1 text-sm transition ${
-                          isActive ? 'bg-gray-900 text-white' : 'hover:bg-gray-100'
+                        role="option"
+                        aria-selected={isActive || isFocused}
+                        tabIndex={-1}
+                        className={`block cursor-pointer rounded px-2 py-1 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 ${
+                          isActive
+                            ? 'bg-gray-900 text-white'
+                            : isFocused
+                            ? 'bg-gray-100'
+                            : 'hover:bg-gray-50'
                         }`}
                       >
-                        {cond.name}
+                        {highlightMatch(cond.name, debouncedQuery)}
                       </a>
                     </li>
                   )
@@ -141,7 +256,9 @@ export default function ConditionsList() {
               </ul>
             </div>
           ))}
-          {filtered.length === 0 && <p className="text-sm text-gray-700">No matches.</p>}
+          {filtered.length === 0 && (
+            <p className="text-sm text-gray-700">No matches. Try a different keyword.</p>
+          )}
         </nav>
       )}
     </div>
