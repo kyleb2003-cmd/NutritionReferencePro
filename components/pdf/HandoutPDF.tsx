@@ -183,7 +183,7 @@ export default function HandoutPDF(props: {
         </View>
 
         {printableSections.map((section, index) => (
-          <View key={index}>
+          <View key={index} break={index > 0}>
             <Text style={styles.heading2}>{section.label}</Text>
             {renderMarkdownBlocks(parseMarkdown(section.text))}
           </View>

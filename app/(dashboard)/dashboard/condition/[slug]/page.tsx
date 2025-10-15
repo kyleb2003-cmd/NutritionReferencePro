@@ -20,6 +20,7 @@ type Content = {
   shopping_list?: string | null
   rd_referral?: string | null
   practitioner_notes?: string | null
+  eat_this_not_that?: string | null
 }
 
 type ConditionRow = {
@@ -51,6 +52,7 @@ const SECTIONS = [
   { key: 'mealplan_2600', label: 'Meal Plan 2600 kcal' },
   { key: 'shopping_list', label: 'Shopping List' },
   { key: 'rd_referral', label: 'RD Referral' },
+  { key: 'eat_this_not_that', label: 'Eat This, not That' },
 ] as const
 
 export default function ConditionBuilderPage() {
@@ -58,7 +60,16 @@ export default function ConditionBuilderPage() {
   const slug = params?.slug
   const [condition, setCondition] = useState<ConditionRow | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<SelectedSections>(() => ({ overview: true, shopping_list: true }))
+  const [selected, setSelected] = useState<SelectedSections>(() => ({
+    overview: true,
+    mealplan_1400: false,
+    mealplan_1800: false,
+    mealplan_2200: false,
+    mealplan_2600: false,
+    shopping_list: false,
+    rd_referral: false,
+    eat_this_not_that: false,
+  }))
   const [patientName, setPatientName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [patientError, setPatientError] = useState<string | null>(null)
@@ -76,7 +87,7 @@ export default function ConditionBuilderPage() {
       const { data, error } = await supabase
         .from('conditions')
         .select(
-          'id,name,slug,content:condition_content ( practitioner_notes,overview,mealplan_1400,mealplan_1800,mealplan_2200,mealplan_2600,shopping_list,rd_referral ),citations:condition_citations ( id,citation,url,sort_order )',
+          'id,name,slug,content:condition_content ( practitioner_notes,overview,mealplan_1400,mealplan_1800,mealplan_2200,mealplan_2600,shopping_list,rd_referral,eat_this_not_that ),citations:condition_citations ( id,citation,url,sort_order )',
         )
         .eq('slug', slug)
         .order('sort_order', { referencedTable: 'condition_citations', ascending: true })
@@ -150,6 +161,7 @@ export default function ConditionBuilderPage() {
     push('mealplan_2600', 'Meal Plan 2600 kcal')
     push('shopping_list', 'Shopping List')
     push('rd_referral', 'RD Referral')
+    push('eat_this_not_that', 'Eat This, not That')
     return sections
   }
 
