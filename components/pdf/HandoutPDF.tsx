@@ -3,35 +3,69 @@ import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/render
 
 export type PDFSection = { label: string; text?: string | null }
 
-export const styles = StyleSheet.create({
-  page: { padding: 36, fontSize: 11, lineHeight: 1.35 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  logo: { width: 64, height: 64, marginRight: 16, objectFit: 'contain' },
+const PAGE_PADDING = 28
+const HEADER_H = 84
+const FOOTER_H = 64
+
+const styles = StyleSheet.create({
+  page: {
+    fontSize: 11.5,
+    lineHeight: 1.55,
+    paddingTop: PAGE_PADDING,
+    paddingBottom: PAGE_PADDING,
+    paddingLeft: PAGE_PADDING,
+    paddingRight: PAGE_PADDING,
+  },
+  header: {
+    position: 'absolute',
+    top: PAGE_PADDING,
+    left: PAGE_PADDING,
+    right: PAGE_PADDING,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  logo: { width: 64, height: 64, objectFit: 'contain' },
   titleWrap: { flexGrow: 1 },
-  appName: { fontSize: 10, color: '#6B7280' },
-  clinicName: { fontSize: 14, marginBottom: 2, fontWeight: 700 },
-  condition: { fontSize: 16, marginTop: 4, fontWeight: 700 },
+  clinicName: { fontSize: 14, fontWeight: 700, color: '#111827' },
+  appName: { fontSize: 10, color: '#6B7280', marginTop: 2 },
+  condition: { fontSize: 16, fontWeight: 700, color: '#111827', marginTop: 4 },
   meta: { fontSize: 10, color: '#374151', marginTop: 2 },
-  heading1: { marginTop: 14, marginBottom: 6, fontSize: 14, fontWeight: 700 },
-  heading2: { marginTop: 12, marginBottom: 6, fontSize: 13, fontWeight: 700 },
-  heading3: { marginTop: 10, marginBottom: 5, fontSize: 12, fontWeight: 700 },
-  p: { marginBottom: 8, lineHeight: 1.4 },
-  list: { marginLeft: 14, marginBottom: 8 },
-  listItem: { flexDirection: 'row', marginBottom: 4 },
+  content: {
+    marginTop: HEADER_H + 12,
+    marginBottom: FOOTER_H + 12,
+    flexDirection: 'column',
+    gap: 18,
+  },
+  section: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  sectionHeading: { fontSize: 14, fontWeight: 700, color: '#111827' },
+  paragraph: { fontSize: 11.5, color: '#1F2937', lineHeight: 1.6 },
+  list: { marginLeft: 14, gap: 4, color: '#1F2937' },
+  listItem: { flexDirection: 'row', gap: 6 },
   listBullet: { width: 12, fontWeight: 700 },
-  listText: { flex: 1, lineHeight: 1.4 },
+  listText: { flex: 1, fontSize: 11.5, lineHeight: 1.6 },
   footer: {
     position: 'absolute',
-    bottom: 24,
-    left: 36,
-    right: 36,
-    fontSize: 9,
-    color: '#4B5563',
+    bottom: PAGE_PADDING,
+    left: PAGE_PADDING,
+    right: PAGE_PADDING,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    paddingTop: 6,
-    lineHeight: 1.4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    fontSize: 9.5,
+    color: '#1F2937',
   },
+  footerLeft: { flexGrow: 1, gap: 2 },
+  footerRight: { textAlign: 'right' },
 })
 
 type MarkdownBlock =
@@ -118,36 +152,39 @@ function parseMarkdown(text?: string | null): MarkdownBlock[] {
 }
 
 function renderMarkdownBlocks(blocks: MarkdownBlock[]): ReactElement[] {
-  return blocks.map((block, index) => {
-    if (block.type === 'heading') {
-      const style =
-        block.depth === 1 ? styles.heading1 : block.depth === 2 ? styles.heading2 : styles.heading3
+  return blocks
+    .map((block, index) => {
+      if (block.type === 'heading') {
+        return (
+          <Text key={`heading-${index}`} style={styles.sectionHeading}>
+            {block.text}
+          </Text>
+        )
+      }
+
+      if (block.type === 'list') {
+        return (
+          <View key={`list-${index}`} style={styles.list}>
+            {block.items.map((item, idx) => (
+              <View key={`list-${index}-${idx}`} style={styles.listItem}>
+                <Text style={styles.listBullet}>{item.bullet}</Text>
+                <Text style={styles.listText}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+        )
+      }
+
+      const text = block.text.trim()
+      if (!text) return null
+
       return (
-        <Text key={index} style={style}>
-          {block.text}
+        <Text key={`paragraph-${index}`} style={styles.paragraph}>
+          {text}
         </Text>
       )
-    }
-
-    if (block.type === 'list') {
-      return (
-        <View key={index} style={styles.list}>
-          {block.items.map((item, idx) => (
-            <View key={idx} style={styles.listItem}>
-              <Text style={styles.listBullet}>{item.bullet}</Text>
-              <Text style={styles.listText}>{item.text}</Text>
-            </View>
-          ))}
-        </View>
-      )
-    }
-
-    return (
-      <Text key={index} style={styles.p}>
-        {block.text}
-      </Text>
-    )
-  })
+    })
+    .filter(Boolean) as ReactElement[]
 }
 
 export default function HandoutPDF(props: {
@@ -160,16 +197,17 @@ export default function HandoutPDF(props: {
   sections: PDFSection[]
 }) {
   const { clinicName, footerText, logoDataUrl, conditionName, patientName, printedOn, sections } = props
-  const printableSections = sections.filter((section) => (section.text || '').trim().length > 0)
-  const footerLines = [
-    `Generated by Nutrition Reference Pro • Printed on ${printedOn}`,
-    footerText?.trim() || '',
-  ].filter(Boolean)
+  const printableSections = sections
+    .map((section) => ({ ...section, text: (section.text || '').trim() }))
+    .filter((section) => section.text?.length)
+  const footerLines = [`Generated by Nutrition Reference Pro • Printed on: ${printedOn}`].concat(
+    footerText?.trim() ? [footerText.trim()] : [],
+  )
 
   return (
     <Document>
       <Page size="LETTER" style={styles.page} wrap>
-        <View style={styles.headerRow}>
+        <View style={styles.header} fixed>
           {logoDataUrl ? (
             // eslint-disable-next-line jsx-a11y/alt-text
             <Image style={styles.logo} src={logoDataUrl} />
@@ -178,18 +216,30 @@ export default function HandoutPDF(props: {
             {clinicName ? <Text style={styles.clinicName}>{clinicName}</Text> : null}
             <Text style={styles.appName}>Nutrition Reference Pro</Text>
             <Text style={styles.condition}>{conditionName}</Text>
-            <Text style={styles.meta}>Patient: {patientName}</Text>
+            <Text style={styles.meta}>Patient: {patientName} · Printed on: {printedOn}</Text>
           </View>
         </View>
 
-        {printableSections.map((section, index) => (
-          <View key={index} break={index > 0}>
-            <Text style={styles.heading2}>{section.label}</Text>
-            {renderMarkdownBlocks(parseMarkdown(section.text))}
+        <View style={styles.footer} fixed>
+          <View style={styles.footerLeft}>
+            {footerLines.map((line, idx) => (
+              <Text key={`footer-${idx}`}>{line}</Text>
+            ))}
           </View>
-        ))}
+          <Text
+            style={styles.footerRight}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
+        </View>
 
-        {footerLines.length > 0 ? <Text style={styles.footer}>{footerLines.join('\n')}</Text> : null}
+        <View style={styles.content}>
+          {printableSections.map((section, index) => (
+            <View key={`${section.label}-${index}`} style={styles.section} break={index > 0}>
+              <Text style={styles.sectionHeading}>{section.label}</Text>
+              {renderMarkdownBlocks(parseMarkdown(section.text))}
+            </View>
+          ))}
+        </View>
       </Page>
     </Document>
   )
