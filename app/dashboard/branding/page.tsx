@@ -20,6 +20,18 @@ export default function BrandingPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  async function loadPreview(path: string) {
+    const { data, error } = await supabase.storage.from('branding').download(path)
+    if (error || !data) return
+    const url = URL.createObjectURL(data)
+    setLogoPreviewUrl((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev)
+      }
+      return url
+    })
+  }
+
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -66,18 +78,6 @@ export default function BrandingPage() {
       }
     }
   }, [logoPreviewUrl])
-
-  async function loadPreview(path: string) {
-    const { data, error } = await supabase.storage.from('branding').download(path)
-    if (error || !data) return
-    const url = URL.createObjectURL(data)
-    setLogoPreviewUrl((prev) => {
-      if (prev) {
-        URL.revokeObjectURL(prev)
-      }
-      return url
-    })
-  }
 
   function fileExt(mime: string) {
     if (mime === 'image/png') return 'png'

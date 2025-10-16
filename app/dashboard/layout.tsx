@@ -1,6 +1,9 @@
+import type { ReactNode } from 'react'
+import AuthGate from '@/components/AuthGate'
+import ConditionsList from '@/components/ConditionsList'
 import SignOutButton from '@/components/SignOutButton'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
@@ -30,7 +33,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SignOutButton />
         </div>
       </header>
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">{children}</div>
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+        <AuthGate>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_360px]">
+            <aside className="lg:sticky lg:top-24 lg:self-start">
+              <ConditionsList />
+            </aside>
+            <div className="contents">{children}</div>
+          </div>
+        </AuthGate>
+      </div>
     </div>
   )
 }
