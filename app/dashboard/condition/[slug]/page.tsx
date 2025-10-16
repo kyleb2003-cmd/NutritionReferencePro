@@ -78,12 +78,6 @@ export default function ConditionBuilderPage() {
   const [previewFilename, setPreviewFilename] = useState<string>('handout.pdf')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
-  const [pdfConfig, setPdfConfig] = useState<{
-    branding: Awaited<ReturnType<typeof getBranding>>
-    sections: PDFSection[]
-    printedOn: string
-    safeSlug: string
-  } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -186,8 +180,6 @@ export default function ConditionBuilderPage() {
       const branding = await getBranding()
       const printedOn = new Date().toLocaleDateString()
       const sections = buildSections(condition.content ?? null, selected)
-      console.debug('PDF sections', sections)
-
       const doc = (
         <HandoutPDF
           clinicName={branding.clinicName}
@@ -197,14 +189,12 @@ export default function ConditionBuilderPage() {
           patientName={patientName.trim()}
           printedOn={printedOn}
           sections={sections}
-          debug
         />
       ) as ReactElement<DocumentProps>
 
       const safeSlug = (condition.slug || 'handout').replace(/[^a-z0-9-]/gi, '-').toLowerCase()
       setPreviewFilename(`${safeSlug}-handout.pdf`)
       setPreviewDoc(doc)
-      setPdfConfig({ branding, sections, printedOn, safeSlug })
       setPreviewOpen(true)
     } catch (exportError) {
       console.error('PDF export failed:', exportError)
@@ -215,16 +205,20 @@ export default function ConditionBuilderPage() {
   }
 
   async function onDownloadPdf() {
-    if (!pdfConfig) return
+    if (!condition) return
     setDownloading(true)
     try {
-      const { branding, sections, printedOn, safeSlug } = pdfConfig
+    const branding = await getBranding()
+      const printedOn = new Date().toLocaleDateString()
+      const sections = buildSections(condition.content ?? null, selected)
+      const safeSlug = (condition.slug || 'handout').replace(/[^a-z0-9-]/gi, '-').toLowerCase()
+
       const doc = (
         <HandoutPDF
           clinicName={branding.clinicName}
           footerText={branding.footerText}
           logoDataUrl={branding.logoDataUrl}
-          conditionName={condition?.name ?? 'Handout'}
+          conditionName={condition.name}
           patientName={patientName.trim()}
           printedOn={printedOn}
           sections={sections}

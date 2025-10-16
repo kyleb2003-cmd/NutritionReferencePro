@@ -1,8 +1,32 @@
 'use client'
 
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
+import { Component, useEffect } from 'react'
 import { PDFViewer, type DocumentProps } from '@react-pdf/renderer'
-import { useEffect } from 'react'
+
+class PDFErrorBoundary extends Component<{ children: ReactNode }, { err?: Error }> {
+  state = { err: undefined as Error | undefined }
+
+  static getDerivedStateFromError(err: Error) {
+    return { err }
+  }
+
+  componentDidCatch(err: Error) {
+    console.error('PDF render error:', err)
+  }
+
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="p-4 text-sm text-red-700">
+          Sorry, the PDF preview failed to render. Check the console for details.
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
 
 export default function HandoutPreviewModal(props: {
   open: boolean
@@ -52,9 +76,11 @@ export default function HandoutPreviewModal(props: {
           </div>
         </div>
         <div className="flex-1 bg-gray-100">
-          <PDFViewer showToolbar width="100%" height="100%">
-            {document}
-          </PDFViewer>
+          <PDFErrorBoundary>
+            <PDFViewer showToolbar width="100%" height="100%">
+              {document}
+            </PDFViewer>
+          </PDFErrorBoundary>
         </div>
       </div>
     </div>
