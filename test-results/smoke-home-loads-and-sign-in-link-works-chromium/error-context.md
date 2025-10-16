@@ -1,0 +1,45 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: Nutrition Reference Pro
+      - navigation [ref=e5]:
+        - link "Sign in" [ref=e6] [cursor=pointer]:
+          - /url: /auth/sign-in
+        - link "Create account" [ref=e7] [cursor=pointer]:
+          - /url: /auth/sign-up
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]: Built for clinics without dietitians
+        - heading "Consistent, branded, evidence-based nutrition handouts—fast." [level=1] [ref=e11]
+        - paragraph [ref=e12]: Nutrition Reference Pro lets providers generate professional education materials in minutes. Search conditions, select sections, and export polished PDFs with your clinic’s logo and footer.
+        - generic [ref=e13]:
+          - link "Get started" [ref=e14] [cursor=pointer]:
+            - /url: /auth/sign-up
+          - link "Sign in" [ref=e15] [cursor=pointer]:
+            - /url: /auth/sign-in
+        - list [ref=e16]:
+          - listitem [ref=e17]: Evidence-based content with citations and “Printed on” date
+          - listitem [ref=e18]: "Clinic branding: logo + custom footer"
+          - listitem [ref=e19]: Search by condition and build handouts by section
+          - listitem [ref=e20]: Export to PDF—consistent, readable, and ready for patients
+      - paragraph [ref=e30]: Preview of the handout builder interface.
+    - generic [ref=e31]:
+      - heading "How it works" [level=2] [ref=e32]
+      - list [ref=e33]:
+        - listitem [ref=e34]:
+          - generic [ref=e35]: 1. Search & select
+          - text: Choose a condition from our taxonomy and pick the sections you need.
+        - listitem [ref=e36]:
+          - generic [ref=e37]: 2. Brand your handout
+          - text: Upload your clinic logo and set a professional footer once.
+        - listitem [ref=e38]:
+          - generic [ref=e39]: 3. Export to PDF
+          - text: Generate a consistent, evidence-based PDF—ready for patients.
+    - generic [ref=e40]: © 2025 Nutrition Reference Pro · Next.js · Supabase · Tailwind
+  - button "Open Next.js Dev Tools" [ref=e46] [cursor=pointer]:
+    - img [ref=e47]
+  - alert [ref=e50]
+```
