@@ -78,6 +78,12 @@ export default function ConditionBuilderPage() {
   const [previewFilename, setPreviewFilename] = useState<string>('handout.pdf')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [pdfConfig, setPdfConfig] = useState<{
+    branding: Awaited<ReturnType<typeof getBranding>>
+    sections: PDFSection[]
+    printedOn: string
+    safeSlug: string
+  } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -148,11 +154,14 @@ export default function ConditionBuilderPage() {
 
   function buildSections(content: Content | null | undefined, selections: SelectedSections): PDFSection[] {
     if (!content) return []
+    const placeholder = '[Placeholder] Content will go here.'
     const sections: PDFSection[] = []
     const push = (key: keyof Content, label: string) => {
-      if (selections[key]) {
-        sections.push({ label, text: content[key] || '' })
-      }
+      if (!selections[key]) return
+      const raw = content[key] ?? ''
+      const text = typeof raw === 'string' ? raw : ''
+      const normalized = text.replace(/\r\n/g, '\n').trim()
+      sections.push({ label, text: normalized.length > 0 ? raw : placeholder })
     }
     push('overview', 'Overview')
     push('mealplan_1400', 'Meal Plan 1400 kcal')
@@ -177,6 +186,7 @@ export default function ConditionBuilderPage() {
       const branding = await getBranding()
       const printedOn = new Date().toLocaleDateString()
       const sections = buildSections(condition.content ?? null, selected)
+      console.debug('PDF sections', sections)
 
       const doc = (
         <HandoutPDF
@@ -187,12 +197,14 @@ export default function ConditionBuilderPage() {
           patientName={patientName.trim()}
           printedOn={printedOn}
           sections={sections}
+          debug
         />
       ) as ReactElement<DocumentProps>
 
       const safeSlug = (condition.slug || 'handout').replace(/[^a-z0-9-]/gi, '-').toLowerCase()
       setPreviewFilename(`${safeSlug}-handout.pdf`)
       setPreviewDoc(doc)
+      setPdfConfig({ branding, sections, printedOn, safeSlug })
       setPreviewOpen(true)
     } catch (exportError) {
       console.error('PDF export failed:', exportError)
@@ -203,10 +215,23 @@ export default function ConditionBuilderPage() {
   }
 
   async function onDownloadPdf() {
-    if (!previewDoc) return
+    if (!pdfConfig) return
     setDownloading(true)
     try {
-      await downloadPdf(previewDoc, previewFilename)
+      const { branding, sections, printedOn, safeSlug } = pdfConfig
+      const doc = (
+        <HandoutPDF
+          clinicName={branding.clinicName}
+          footerText={branding.footerText}
+          logoDataUrl={branding.logoDataUrl}
+          conditionName={condition?.name ?? 'Handout'}
+          patientName={patientName.trim()}
+          printedOn={printedOn}
+          sections={sections}
+        />
+      ) as ReactElement<DocumentProps>
+
+      await downloadPdf(doc, previewFilename || `${safeSlug}-handout.pdf`)
     } catch (downloadError) {
       console.error('PDF download failed:', downloadError)
       alert('Unable to download the PDF. Please try again.')
