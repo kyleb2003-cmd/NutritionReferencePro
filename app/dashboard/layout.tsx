@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import Link from 'next/link'
 import AuthGate from '@/components/AuthGate'
 import ConditionsList from '@/components/ConditionsList'
 import SignOutButton from '@/components/SignOutButton'
@@ -9,25 +10,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-3">
           <div className="flex items-center gap-6">
-            <a
+            <Link
               href="/dashboard"
               className="text-lg font-semibold text-gray-900 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
             >
               Nutrition Reference Pro
-            </a>
+            </Link>
             <nav className="hidden items-center gap-5 text-sm font-medium text-gray-800 md:flex">
-              <a
-                className="inline-flex items-center rounded-md px-2 py-1 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+              <Link
                 href="/dashboard"
+                className="inline-flex items-center rounded-md px-2 py-1 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
               >
                 Dashboard
-              </a>
-              <a
-                className="inline-flex items-center rounded-md px-2 py-1 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+              </Link>
+              <Link
                 href="/dashboard/branding"
+                className="inline-flex items-center rounded-md px-2 py-1 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
               >
                 Branding
-              </a>
+              </Link>
             </nav>
           </div>
           <SignOutButton />

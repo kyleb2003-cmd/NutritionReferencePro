@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
@@ -58,9 +59,9 @@ export default function SignUpPage() {
         </button>
       </form>
       <div className="text-sm font-medium text-gray-800">
-        <a className="underline decoration-2" href="/auth/sign-in">
+        <Link className="underline decoration-2" href="/auth/sign-in">
           Already have an account? Sign in
-        </a>
+        </Link>
       </div>
     </main>
   )

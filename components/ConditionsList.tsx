@@ -3,6 +3,7 @@
 
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
@@ -231,7 +232,7 @@ export default function ConditionsList() {
                   const isFocused = flatIndex === focusedIndex
                   return (
                     <li key={cond.id}>
-                      <a
+                      <Link
                         id={`condition-option-${cond.id}`}
                         ref={(node) => {
                           if (flatIndex >= 0) itemRefs.current[flatIndex] = node
@@ -249,7 +250,7 @@ export default function ConditionsList() {
                         }`}
                       >
                         {highlightMatch(cond.name, debouncedQuery)}
-                      </a>
+                      </Link>
                     </li>
                   )
                 })}

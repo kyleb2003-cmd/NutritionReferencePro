@@ -1,21 +1,23 @@
+import Link from 'next/link'
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-white to-slate-50 text-gray-900">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="text-lg font-semibold tracking-tight text-gray-900">Nutrition Reference Pro</div>
         <nav className="flex items-center gap-5 text-sm font-medium text-gray-800">
-          <a
+          <Link
             href="/auth/sign-in"
             className="inline-flex items-center rounded-md px-2 py-1 transition hover:underline"
           >
             Sign in
-          </a>
-          <a
+          </Link>
+          <Link
             href="/auth/sign-up"
             className="inline-flex items-center rounded-md border border-gray-900 px-3 py-1.5 font-semibold text-gray-900 transition hover:bg-gray-900 hover:text-white"
           >
             Create account
-          </a>
+          </Link>
         </nav>
       </header>
 
@@ -32,18 +34,18 @@ export default function LandingPage() {
             conditions, select sections, and export polished PDFs with your clinic’s logo and footer.
           </p>
           <div className="flex flex-wrap gap-3">
-            <a
+            <Link
               href="/auth/sign-up"
               className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white shadow transition hover:bg-black/90 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
             >
               Get started
-            </a>
-            <a
+            </Link>
+            <Link
               href="/auth/sign-in"
               className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-gray-900 px-5 py-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-900/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
             >
               Sign in
-            </a>
+            </Link>
           </div>
           <ul className="grid gap-2 pt-4 text-sm text-gray-800">
             <li className="list-disc pl-5">Evidence-based content with citations and “Printed on” date</li>
