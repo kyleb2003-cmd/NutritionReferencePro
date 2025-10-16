@@ -1,28 +1,6 @@
-'use client'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase-client'
 import SignOutButton from '@/components/SignOutButton'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const r = useRouter()
-
-  useEffect(() => {
-    let mounted = true
-    async function check() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session && mounted) r.replace('/auth/sign-in')
-    }
-    check()
-    const { data: sub } = supabase.auth.onAuthStateChange(() => check())
-    return () => {
-      mounted = false
-      sub.subscription.unsubscribe()
-    }
-  }, [r])
-
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
