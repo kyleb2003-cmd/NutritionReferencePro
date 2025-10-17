@@ -1,65 +1,67 @@
 'use client'
+
 import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
 export default function SignInPage() {
-  const r = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [id, setId] = useState('')
+  const [pw, setPw] = useState('')
   const [err, setErr] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function resolveEmail(identifier: string): Promise<string> {
+    if (identifier.includes('@')) return identifier
+    const r = await fetch(`/api/auth/resolve-username?u=${encodeURIComponent(identifier)}`)
+    if (!r.ok) throw new Error('Unknown username')
+    const j = await r.json()
+    return j.email as string
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
+    setBusy(true)
     setErr(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (error) {
-      setErr(error.message)
-      return
+    try {
+      const email = await resolveEmail(id)
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
+      if (error) throw error
+      window.location.href = '/dashboard'
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sign-in failed'
+      setErr(message)
+    } finally {
+      setBusy(false)
     }
-    r.replace('/dashboard') // go to protected app
   }
 
   return (
-    <main className="mx-auto max-w-md space-y-5 px-6 py-8 text-gray-900">
-      <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
+    <main className="mx-auto max-w-md p-8">
+      <h1 className="text-2xl font-semibold mb-4">Sign in</h1>
       <form onSubmit={onSubmit} className="space-y-3">
-        <input
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus-visible:border-gray-500"
-          type="password"
-          placeholder="Your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {err && <p className="text-sm text-red-600">{err}</p>}
-        <button
-          className="w-full cursor-pointer rounded-md bg-black py-2 text-sm font-semibold text-white transition hover:bg-black/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 disabled:cursor-not-allowed disabled:bg-gray-600"
-          disabled={loading}
-        >
-          {loading ? 'Signing in…' : 'Sign in'}
+        <label className="block">
+          <span className="text-sm">Username (or email)</span>
+          <input
+            className="mt-1 w-full rounded border px-3 py-2"
+            value={id}
+            onChange={(event) => setId(event.target.value)}
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm">Password</span>
+          <input
+            type="password"
+            className="mt-1 w-full rounded border px-3 py-2"
+            value={pw}
+            onChange={(event) => setPw(event.target.value)}
+            required
+          />
+        </label>
+        {err ? <p className="text-red-600 text-sm">{err}</p> : null}
+        <button disabled={busy} className="rounded bg-black text-white px-4 py-2 disabled:opacity-50">
+          {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
-      <div className="flex flex-wrap gap-3 text-sm font-medium text-gray-800">
-        <Link href="/auth/forgot-password" className="underline decoration-2">
-          Forgot password?
-        </Link>
-        <Link href="/auth/sign-up" className="underline decoration-2">
-          Create account
-        </Link>
-      </div>
     </main>
   )
 }

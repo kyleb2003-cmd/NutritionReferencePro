@@ -33,10 +33,10 @@ export default function HandoutPreviewModal(props: {
   document: ReactElement<DocumentProps> | null
   filename: string
   onClose: () => void
-  onDownload: () => Promise<void> | void
-  downloading: boolean
+  onOpen: () => Promise<void> | void
+  opening: boolean
 }) {
-  const { open, document, onClose, onDownload, downloading, filename } = props
+  const { open, document, onClose, onOpen, opening, filename } = props
 
   useEffect(() => {
     if (!open) return
@@ -61,11 +61,11 @@ export default function HandoutPreviewModal(props: {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={onDownload}
-              disabled={downloading}
-              className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/90 disabled:opacity-60"
+              onClick={onOpen}
+              disabled={opening}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 disabled:opacity-60"
             >
-              {downloading ? 'Downloading…' : 'Download PDF'}
+              {opening ? 'Opening…' : 'Open in new tab for printing'}
             </button>
             <button
               onClick={onClose}

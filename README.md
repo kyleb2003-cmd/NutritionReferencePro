@@ -8,25 +8,23 @@ This project is a [Next.js](https://nextjs.org) app bootstrapped with [`create-n
 
 ## Getting Started
 
-Run the development server:
+## Environment variables
 
-```bash
-pnpm dev
+Create `.env.local` (and configure the same keys in Vercel) with:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_LOOKUP_SINGLE=nrp_seat_single_monthly_49
+NEXT_PUBLIC_BILLING_MODE=card                        # or invoice
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to see the result. Begin editing by modifying `app/page.tsx`; the page updates as you save changes.
+### Stripe setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font).
+Create a single recurring monthly Price in Stripe ($49/mo) and assign it the lookup key from `STRIPE_LOOKUP_SINGLE`.
 
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Learn Next.js](https://nextjs.org/learn)
-
-You can check out the [Next.js GitHub repository](https://github.com/vercel/next.js) for community resources and contributions.
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is with the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme), from the creators of Next.js.
-
-See the [deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Store the Webhook secret from `stripe listen` in `STRIPE_WEBHOOK_SECRET`. The app uses Stripe Checkout for card payments and generates draft invoices for institutional billing.

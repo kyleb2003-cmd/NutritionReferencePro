@@ -1,9 +1,11 @@
 'use client'
-import { supabase } from '@/lib/supabase-client'
 import { useState } from 'react'
+import { useSeatLease } from '@/components/AuthGate'
+import { supabase } from '@/lib/supabase-client'
 
 export default function SignOutButton() {
   const [busy, setBusy] = useState(false)
+  const { releaseSeat } = useSeatLease()
   return (
     <button
       type="button"
@@ -13,6 +15,7 @@ export default function SignOutButton() {
       onClick={async () => {
         try {
           setBusy(true)
+          await releaseSeat()
           const { error } = await supabase.auth.signOut({ scope: 'global' })
           if (error) {
             console.error('Sign out error:', error)

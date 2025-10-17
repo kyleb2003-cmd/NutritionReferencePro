@@ -9,7 +9,8 @@ import remarkGfm from 'remark-gfm'
 import HandoutPDF, { type PDFSection } from '@/components/pdf/HandoutPDF'
 import HandoutPreviewModal from '@/components/pdf/HandoutPreviewModal'
 import { supabase } from '@/lib/supabase-client'
-import { blobToDataUrl, downloadPdf } from '@/lib/pdf'
+import { fetchWithAuth } from '@/lib/auth-fetch'
+import { blobToDataUrl, openPdfInNewTab } from '@/lib/pdf'
 
 type Content = {
   overview?: string | null
@@ -77,7 +78,10 @@ export default function ConditionBuilderPage() {
   const [previewDoc, setPreviewDoc] = useState<ReactElement<DocumentProps> | null>(null)
   const [previewFilename, setPreviewFilename] = useState<string>('handout.pdf')
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [downloading, setDownloading] = useState(false)
+  const [opening, setOpening] = useState(false)
+  const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null)
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
+  const [subscribeBusy, setSubscribeBusy] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -115,6 +119,39 @@ export default function ConditionBuilderPage() {
       active = false
     }
   }, [slug])
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data: sess } = await supabase.auth.getSession()
+      const uid = sess.session?.user?.id
+      if (!active) return
+      if (!uid) {
+        setSubscriptionActive(false)
+        return
+      }
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('status, seat_count')
+        .eq('clinic_id', uid)
+        .in('status', ['active', 'trialing'])
+        .maybeSingle()
+
+      if (!active) return
+
+      if (error) {
+        setSubscriptionError(error.message)
+        setSubscriptionActive(false)
+        return
+      }
+      setSubscriptionError(null)
+      setSubscriptionActive(!!data)
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const sectionOptions = useMemo(() => SECTIONS, [])
 
@@ -174,7 +211,12 @@ export default function ConditionBuilderPage() {
       setPatientError('Patient name is required to generate the handout.')
       return
     }
+    if (!subscriptionActive) {
+      setSubscriptionError('An active subscription is required to preview handouts.')
+      return
+    }
     setPatientError(null)
+    setSubscriptionError(null)
     setExporting(true)
     try {
       const branding = await getBranding()
@@ -204,11 +246,15 @@ export default function ConditionBuilderPage() {
     }
   }
 
-  async function onDownloadPdf() {
+  async function onOpenPdf() {
     if (!condition) return
-    setDownloading(true)
+    if (!subscriptionActive) {
+      setSubscriptionError('An active subscription is required to preview handouts.')
+      return
+    }
+    setOpening(true)
     try {
-    const branding = await getBranding()
+      const branding = await getBranding()
       const printedOn = new Date().toLocaleDateString()
       const sections = buildSections(condition.content ?? null, selected)
       const safeSlug = (condition.slug || 'handout').replace(/[^a-z0-9-]/gi, '-').toLowerCase()
@@ -225,14 +271,53 @@ export default function ConditionBuilderPage() {
         />
       ) as ReactElement<DocumentProps>
 
-      await downloadPdf(doc, previewFilename || `${safeSlug}-handout.pdf`)
+      await openPdfInNewTab(doc, previewFilename || `${safeSlug}-handout.pdf`)
     } catch (downloadError) {
       console.error('PDF download failed:', downloadError)
       alert('Unable to download the PDF. Please try again.')
     } finally {
-      setDownloading(false)
+      setOpening(false)
     }
   }
+
+  async function onSubscribe() {
+    setSubscriptionError(null)
+    setSubscribeBusy(true)
+    try {
+      const response = await fetchWithAuth('/api/billing/checkout', { method: 'POST' })
+      const payload = (await response.json()) as { url?: string }
+      if (payload?.url) {
+        window.location.href = payload.url
+        return
+      }
+      throw new Error('Stripe checkout URL missing.')
+    } catch (subscribeErr) {
+      const message = subscribeErr instanceof Error ? subscribeErr.message : String(subscribeErr)
+      setSubscriptionError(message)
+    } finally {
+      setSubscribeBusy(false)
+    }
+  }
+
+  const subscriptionGatePanel = (
+    <div className="space-y-3 rounded-xl border border-dashed border-gray-300 bg-white p-4 shadow-sm">
+      <div>
+        <h3 className="text-base font-semibold text-gray-900">Subscribe to export handouts</h3>
+        <p className="text-sm text-gray-700">
+          An active plan unlocks the PDF preview and clinic branding for handouts.
+        </p>
+      </div>
+      {subscriptionError ? <p className="text-sm text-red-600">{subscriptionError}</p> : null}
+      <button
+        type="button"
+        onClick={onSubscribe}
+        disabled={subscribeBusy}
+        className="inline-flex w-full justify-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 disabled:opacity-60"
+      >
+        {subscribeBusy ? 'Redirecting…' : 'Subscribe'}
+      </button>
+    </div>
+  )
 
   return (
     <>
@@ -242,6 +327,15 @@ export default function ConditionBuilderPage() {
           <p className="text-gray-800">
             Use the Handout Builder on the right to pick sections and export a PDF branded for your clinic.
           </p>
+          {subscriptionActive === null ? (
+            <p className="text-sm text-gray-700">Checking billing status…</p>
+          ) : null}
+          {subscriptionActive === false ? (
+            <div className="xl:hidden">{subscriptionGatePanel}</div>
+          ) : null}
+          {subscriptionActive && subscriptionError ? (
+            <p className="text-sm text-red-600">{subscriptionError}</p>
+          ) : null}
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
@@ -296,61 +390,73 @@ export default function ConditionBuilderPage() {
       </div>
 
       <aside className="hidden xl:block xl:col-start-3 xl:row-start-1">
-        <div className="sticky top-24 space-y-4 rounded-xl border bg-white p-4 shadow-sm">
-          <h3 className="font-medium">Handout Builder</h3>
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-900">
-              <span>Patient name (required)</span>
-              <input
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-gray-500"
-                value={patientName}
-                onChange={(event) => {
-                  const value = event.target.value
-                  setPatientName(value)
-                  if (value.trim()) {
-                    setPatientError(null)
-                  }
-                }}
-                placeholder="e.g., Jane Smith"
-              />
-              {patientError ? <p className="mt-1 text-xs text-red-600">{patientError}</p> : null}
-            </label>
-            <div className="space-y-2 border-t border-gray-200 pt-2 text-sm">
-              {sectionOptions.map((section) => (
-                <label key={section.key} className="flex items-center gap-2">
+        <div className="sticky top-24">
+          {subscriptionActive ? (
+            <div className="space-y-4 rounded-xl border bg-white p-4 shadow-sm">
+              <h3 className="font-medium">Handout Builder</h3>
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-900">
+                  <span>Patient name (required)</span>
                   <input
-                    type="checkbox"
-                    checked={!!selected[section.key]}
-                    onChange={(event) =>
-                      setSelected((prev) => ({ ...prev, [section.key]: event.target.checked }))
-                    }
+                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-gray-500"
+                    value={patientName}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setPatientName(value)
+                      if (value.trim()) {
+                        setPatientError(null)
+                      }
+                    }}
+                    placeholder="e.g., Jane Smith"
                   />
-                  {section.label}
+                  {patientError ? <p className="mt-1 text-xs text-red-600">{patientError}</p> : null}
                 </label>
-              ))}
+                <div className="space-y-2 border-t border-gray-200 pt-2 text-sm">
+                  {sectionOptions.map((section) => (
+                    <label key={section.key} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={!!selected[section.key]}
+                        onChange={(event) =>
+                          setSelected((prev) => ({ ...prev, [section.key]: event.target.checked }))
+                        }
+                      />
+                      {section.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <button
+                className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/90 disabled:opacity-60"
+                onClick={onPreviewPdf}
+                disabled={loading || !condition || exporting || !patientName.trim()}
+              >
+                {exporting ? 'Preparing…' : 'Preview PDF'}
+              </button>
+              <p className="text-xs text-gray-700">
+                Your clinic logo and footer will appear automatically when you open the preview.
+              </p>
             </div>
-          </div>
-          <button
-            className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-black/90 disabled:opacity-60"
-            onClick={onPreviewPdf}
-            disabled={loading || !condition || exporting || !patientName.trim()}
-          >
-            {exporting ? 'Preparing…' : 'Preview PDF'}
-          </button>
-          <p className="text-xs text-gray-700">
-            Your clinic logo and footer will appear automatically when you export the PDF.
-          </p>
+          ) : subscriptionActive === false ? (
+            subscriptionGatePanel
+          ) : (
+            <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700 shadow-sm">
+              Checking billing status…
+            </div>
+          )}
         </div>
       </aside>
 
-      <HandoutPreviewModal
-        open={previewOpen}
-        document={previewDoc}
-        filename={previewFilename}
-        onClose={() => setPreviewOpen(false)}
-        onDownload={onDownloadPdf}
-        downloading={downloading}
-      />
+      {subscriptionActive ? (
+        <HandoutPreviewModal
+          open={previewOpen}
+          document={previewDoc}
+          filename={previewFilename}
+          onClose={() => setPreviewOpen(false)}
+          onOpen={onOpenPdf}
+          opening={opening}
+        />
+      ) : null}
     </>
   )
 }

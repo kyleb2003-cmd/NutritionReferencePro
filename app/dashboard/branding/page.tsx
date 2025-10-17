@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase-client'
+import { fetchWithAuth } from '@/lib/auth-fetch'
 
 type ClinicRow = {
   id: string
@@ -19,6 +20,9 @@ export default function BrandingPage() {
   const [status, setStatus] = useState<string>('Loading...')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'loading' | 'active' | 'inactive'>('loading')
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
+  const [subscribeBusy, setSubscribeBusy] = useState(false)
 
   async function loadPreview(path: string) {
     const { data, error } = await supabase.storage.from('branding').download(path)
@@ -44,6 +48,26 @@ export default function BrandingPage() {
       }
       if (!mounted) return
       setUid(user.id)
+      setStatus('Checking subscription…')
+      const { data: sub, error: subscriptionFetchError } = await supabase
+        .from('subscriptions')
+        .select('status, seat_count')
+        .eq('clinic_id', user.id)
+        .in('status', ['active', 'trialing'])
+        .maybeSingle()
+      if (subscriptionFetchError) {
+        setSubscriptionError(subscriptionFetchError.message)
+        setSubscriptionStatus('inactive')
+        setStatus('')
+        return
+      }
+      if (!sub) {
+        setSubscriptionStatus('inactive')
+        setStatus('')
+        return
+      }
+      setSubscriptionStatus('active')
+      setSubscriptionError(null)
       setStatus('Loading clinic settings...')
       const { data, error } = await supabase
         .from('clinics')
@@ -148,6 +172,59 @@ export default function BrandingPage() {
     }
     setStatus('Saved')
     setTimeout(() => setStatus(''), 1200)
+  }
+
+  async function onSubscribe() {
+    setSubscriptionError(null)
+    setSubscribeBusy(true)
+    try {
+      const response = await fetchWithAuth('/api/billing/checkout', { method: 'POST' })
+      const payload = (await response.json()) as { url?: string }
+      if (payload?.url) {
+        window.location.href = payload.url
+      } else {
+        throw new Error('Stripe checkout URL missing.')
+      }
+    } catch (subscribeErr) {
+      const message = subscribeErr instanceof Error ? subscribeErr.message : String(subscribeErr)
+      setSubscriptionError(message)
+    } finally {
+      setSubscribeBusy(false)
+    }
+  }
+
+  if (subscriptionStatus === 'loading') {
+    return (
+      <main className="p-6">
+        <div className="max-w-3xl space-y-4 text-sm text-gray-700">
+          <p>Checking subscription…</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (subscriptionStatus !== 'active') {
+    return (
+      <main className="p-6">
+        <div className="max-w-3xl space-y-6 rounded-xl border border-dashed border-gray-300 bg-white p-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Billing required</h1>
+            <p className="mt-2 text-sm text-gray-700">
+              Subscribe to unlock clinic branding and PDF exports for your team.
+            </p>
+          </div>
+          {subscriptionError ? <p className="text-sm text-red-600">{subscriptionError}</p> : null}
+          <button
+            type="button"
+            onClick={onSubscribe}
+            disabled={subscribeBusy}
+            className="inline-flex w-full max-w-xs justify-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 disabled:opacity-60"
+          >
+            {subscribeBusy ? 'Redirecting…' : 'Subscribe'}
+          </button>
+        </div>
+      </main>
+    )
   }
 
   return (

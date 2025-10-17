@@ -13,10 +13,10 @@ export default function LandingPage() {
             Sign in
           </Link>
           <Link
-            href="/auth/sign-up"
+            href="/subscribe"
             className="inline-flex items-center rounded-md border border-gray-900 px-3 py-1.5 font-semibold text-gray-900 transition hover:bg-gray-900 hover:text-white"
           >
-            Create account
+            Subscribe
           </Link>
         </nav>
       </header>
@@ -35,10 +35,10 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/auth/sign-up"
+              href="/subscribe"
               className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white shadow transition hover:bg-black/90 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
             >
-              Get started
+              Subscribe
             </Link>
             <Link
               href="/auth/sign-in"

@@ -22,3 +22,19 @@ export async function downloadPdf(doc: ReactElement<DocumentProps>, filename: st
   a.remove()
   URL.revokeObjectURL(url)
 }
+
+export async function openPdfInNewTab(doc: ReactElement<DocumentProps>, filename: string) {
+  const instance = pdf(doc)
+  const blob = await instance.toBlob()
+  const url = URL.createObjectURL(blob)
+  const tab = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!tab) {
+    // Fallback to download when the popup is blocked.
+    await downloadPdf(doc, filename)
+    return
+  }
+  tab.opener = null
+  setTimeout(() => {
+    URL.revokeObjectURL(url)
+  }, 60_000)
+}
