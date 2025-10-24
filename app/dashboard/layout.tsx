@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import AuthGate from '@/components/AuthGate'
+import AuthGateClient from './AuthGateClient'
 import ConditionsList from '@/components/ConditionsList'
 import SignOutButton from '@/components/SignOutButton'
 import SeatUsageBanner from '@/components/SeatUsageBanner'
@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-        <AuthGate>
+        <AuthGateClient>
           <SeatUsageBanner />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_360px]">
             <aside className="lg:sticky lg:top-24 lg:self-start">
@@ -44,7 +44,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </aside>
             <div className="contents">{children}</div>
           </div>
-        </AuthGate>
+        </AuthGateClient>
       </div>
     </div>
   )

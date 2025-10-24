@@ -25,8 +25,8 @@ export async function POST(req: Request) {
           expand: ['customer', 'subscription', 'subscription.items.data.price'],
         })
         await provisionFromStripe({
+          sessionId: session.id,
           session,
-          user: null,
           clinicName: null,
         })
       } catch (error) {

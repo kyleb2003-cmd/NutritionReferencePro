@@ -6,10 +6,11 @@ export async function POST(req: Request) {
     const origin = new URL(req.url).origin
     const single = await priceId(LOOKUP_SINGLE)
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? origin
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      success_url: `${origin}/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/subscribe?canceled=1`,
+      success_url: `${siteUrl}/post-checkout/init?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/checkout/canceled`,
       billing_address_collection: 'required',
       line_items: [{ price: single, quantity: 1 }],
     })

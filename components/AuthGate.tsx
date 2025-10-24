@@ -39,7 +39,12 @@ async function safeRelease(leaseId: string | null) {
   try {
     await supabase.rpc('release_seat', { p_lease: leaseId })
   } catch (error) {
-    console.warn('release_seat failed', error)
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes('seat_leases') || message.includes('does not exist')) {
+      console.warn('release_seat failed — seat leasing objects missing', error)
+    } else {
+      console.warn('release_seat failed', error)
+    }
   }
 }
 
@@ -84,7 +89,7 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
           supabase
             .from('seat_leases')
             .select('lease_id', { count: 'exact', head: true })
-            .eq('clinic_id', activeUserId),
+            .eq('workspace_id', activeUserId),
           supabase
             .from('subscriptions')
             .select('seat_count')
@@ -173,23 +178,30 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
       setSeatError(null)
       await releaseSeat()
 
-      const leaseId = crypto.randomUUID()
       const { data, error } = await supabase.rpc('claim_seat', {
-        p_clinic: activeUserId,
-        p_user: activeUserId,
-        p_lease: leaseId,
+        p_workspace_id: activeUserId,
       })
 
       if (cancelled) return
 
       if (error) {
         console.error('claim_seat failed', error)
-        setSeatError('Unable to reserve a seat. Please try again.')
+        const message = error.message || ''
+        if (error.code === '42P01' || /relation "public\.seat_leases"/i.test(message) || message.includes('does not exist')) {
+          setSeatError('Seat claim failed. Apply the latest Supabase migration that creates public.seat_leases and try again.')
+        } else if (error.code === '23514' || /no seats available/i.test(message)) {
+          setSeatError('All seats are in use for your plan.')
+        } else {
+          setSeatError(message || 'Unable to reserve a seat. Please try again.')
+        }
         return
       }
 
-      if (!data) {
-        setSeatError('All seats are in use for your plan.')
+      const leaseRow = Array.isArray(data) ? data[0] : data
+      const leaseId = leaseRow?.lease_id as string | undefined
+
+      if (!leaseId) {
+        setSeatError('Seat claim succeeded without a lease id. Please try again.')
         return
       }
 
@@ -199,8 +211,9 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
       await refreshSeatUsage(activeUserId)
 
       heartbeatId = setInterval(async () => {
-        if (!leaseIdRef.current) return
-        const { error: heartbeatError } = await supabase.rpc('heartbeat', { p_lease: leaseIdRef.current })
+        const activeLease = leaseIdRef.current
+        if (!activeLease) return
+        const { error: heartbeatError } = await supabase.rpc('heartbeat', { p_lease: activeLease })
         if (heartbeatError) {
           console.warn('heartbeat failed', heartbeatError)
           return

@@ -1,13 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
 export default function SignInPage() {
-  const [id, setId] = useState('')
+  const searchParams = useSearchParams()
+  const prefilledEmail = searchParams.get('email') ?? ''
+  const searchParamsKey = searchParams.toString()
+  const [id, setId] = useState(prefilledEmail)
   const [pw, setPw] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    const paramEmail = searchParams.get('email') ?? ''
+    if (paramEmail && paramEmail !== id) {
+      setId(paramEmail)
+    }
+  }, [searchParamsKey, id])
 
   async function resolveEmail(identifier: string): Promise<string> {
     if (identifier.includes('@')) return identifier
