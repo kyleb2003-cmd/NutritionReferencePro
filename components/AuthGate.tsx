@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
 type SeatUsage = {
@@ -22,12 +22,14 @@ type SeatLeaseContextValue = {
   leaseId: string | null
   releaseSeat: () => Promise<void>
   seatUsage: SeatUsage | null
+  workspaceId: string | null
 }
 
 const SeatLeaseContext = createContext<SeatLeaseContextValue>({
   leaseId: null,
   releaseSeat: async () => {},
   seatUsage: null,
+  workspaceId: null,
 })
 
 export function useSeatLease() {
@@ -51,7 +53,9 @@ async function safeRelease(leaseId: string | null) {
 export default function AuthGate({ children }: { children: ReactNode }) {
   if (process.env.NEXT_PUBLIC_GATE_BY_SUB_STATUS === '1') {
     return (
-      <SeatLeaseContext.Provider value={{ leaseId: null, releaseSeat: async () => {}, seatUsage: null }}>
+      <SeatLeaseContext.Provider
+        value={{ leaseId: null, releaseSeat: async () => {}, seatUsage: null, workspaceId: null }}
+      >
         <StatusGate>{children}</StatusGate>
       </SeatLeaseContext.Provider>
     )
@@ -62,9 +66,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
 function SeatLeaseProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [ready, setReady] = useState(false)
   const [checking, setChecking] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [seatReady, setSeatReady] = useState(false)
   const [seatError, setSeatError] = useState<string | null>(null)
   const [seatUsage, setSeatUsage] = useState<SeatUsage | null>(null)
@@ -79,8 +85,8 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refreshSeatUsage = useCallback(
-    async (activeUserId: string | null) => {
-      if (!activeUserId) {
+    async (activeWorkspaceId: string | null) => {
+      if (!activeWorkspaceId) {
         setSeatUsage(null)
         return
       }
@@ -89,11 +95,11 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
           supabase
             .from('seat_leases')
             .select('lease_id', { count: 'exact', head: true })
-            .eq('workspace_id', activeUserId),
+            .eq('workspace_id', activeWorkspaceId),
           supabase
             .from('subscriptions')
             .select('seat_count')
-            .eq('clinic_id', activeUserId)
+            .eq('clinic_id', activeWorkspaceId)
             .maybeSingle<{ seat_count: number }>(),
         ])
 
@@ -129,6 +135,7 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
         setReady(false)
         setChecking(false)
         setUserId(null)
+        setWorkspaceId(null)
         router.replace('/auth/sign-in')
         return
       }
@@ -150,6 +157,7 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
         setSeatReady(false)
         setReady(false)
         setUserId(null)
+        setWorkspaceId(null)
         router.replace('/auth/sign-in')
       } else {
         setUserId(session.user.id)
@@ -164,28 +172,100 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
   }, [router])
 
   useEffect(() => {
+    if (!userId) {
+      setWorkspaceId(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadWorkspace(forUserId: string) {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('clinic_id')
+          .eq('user_id', forUserId)
+          .maybeSingle<{ clinic_id: string | null }>()
+
+        if (cancelled) return
+
+        if (profileError) {
+          console.warn('Unable to fetch workspace from profile', { userId: forUserId, profileError })
+        }
+
+        const clinicId = profile?.clinic_id ?? null
+
+        if (!clinicId) {
+          console.warn('No workspace associated with user profile', { userId: forUserId })
+          setWorkspaceId(null)
+          setSeatReady(false)
+          setSeatError((prev) =>
+            prev && prev !== ''
+              ? prev
+              : 'No workspace is linked to your account. Redirecting to workspace setup.'
+          )
+          if (pathname !== '/dashboard/workspace-required') {
+            router.replace('/dashboard/workspace-required')
+          }
+          return
+        }
+
+        setWorkspaceId(clinicId)
+        setSeatError((prev) =>
+          prev === 'No workspace is linked to your account. Redirecting to workspace setup.' ? null : prev
+        )
+        if (pathname === '/dashboard/workspace-required') {
+          router.replace('/dashboard')
+        }
+      } catch (error) {
+        if (cancelled) return
+        console.warn('loadWorkspace failed', error)
+        setWorkspaceId(null)
+        setSeatReady(false)
+        setSeatError('Unable to determine your workspace. Please try again.')
+        if (pathname !== '/dashboard/workspace-required') {
+          router.replace('/dashboard/workspace-required')
+        }
+      }
+    }
+
+    loadWorkspace(userId)
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId, pathname, router])
+
+  useEffect(() => {
     let cancelled = false
     let heartbeatId: ReturnType<typeof setInterval> | null = null
 
-    if (!userId) {
+    if (!workspaceId) {
+      setSeatReady(false)
       return () => {
         if (heartbeatId) clearInterval(heartbeatId)
       }
     }
 
-    async function claimSeat(activeUserId: string) {
+    async function claimSeat(activeWorkspaceId: string) {
       setSeatReady(false)
       setSeatError(null)
       await releaseSeat()
 
       const { data, error } = await supabase.rpc('claim_seat', {
-        p_workspace_id: activeUserId,
+        workspace_id: activeWorkspaceId,
       })
 
       if (cancelled) return
 
       if (error) {
-        console.error('claim_seat failed', error)
+        const { details, hint } = error as { details?: unknown; hint?: unknown }
+        console.error('claim_seat failed', {
+          code: error.code,
+          message: error.message,
+          details,
+          hint,
+        })
         const message = error.message || ''
         if (error.code === '42P01' || /relation "public\.seat_leases"/i.test(message) || message.includes('does not exist')) {
           setSeatError('Seat claim failed. Apply the latest Supabase migration that creates public.seat_leases and try again.')
@@ -208,7 +288,7 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
       leaseIdRef.current = leaseId
       setLeaseIdState(leaseId)
       setSeatReady(true)
-      await refreshSeatUsage(activeUserId)
+      await refreshSeatUsage(activeWorkspaceId)
 
       heartbeatId = setInterval(async () => {
         const activeLease = leaseIdRef.current
@@ -218,11 +298,11 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
           console.warn('heartbeat failed', heartbeatError)
           return
         }
-        await refreshSeatUsage(activeUserId)
+        await refreshSeatUsage(activeWorkspaceId)
       }, 60_000)
     }
 
-    claimSeat(userId)
+    claimSeat(workspaceId)
 
     const handleBeforeUnload = () => {
       if (!leaseIdRef.current) return
@@ -237,16 +317,21 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
       if (heartbeatId) clearInterval(heartbeatId)
       void releaseSeat()
     }
-  }, [userId, refreshSeatUsage, releaseSeat])
+  }, [workspaceId, refreshSeatUsage, releaseSeat])
 
   const contextValue = useMemo(
     () => ({
       leaseId: leaseIdState,
       releaseSeat,
       seatUsage,
+      workspaceId,
     }),
-    [leaseIdState, releaseSeat, seatUsage]
+    [leaseIdState, releaseSeat, seatUsage, workspaceId]
   )
+
+  if (pathname === '/dashboard/workspace-required') {
+    return <SeatLeaseContext.Provider value={contextValue}>{children}</SeatLeaseContext.Provider>
+  }
 
   if (!ready) {
     return checking ? <div className="text-sm text-gray-700">Checking session…</div> : null

@@ -6,10 +6,14 @@ import { isRedirectError } from 'next/dist/client/components/redirect'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getServiceClient } from '@/lib/supabase/clients'
 import { getUserByEmailViaAdmin } from '@/lib/supabase/auth-admin'
+import { provisionFromStripe } from '@/lib/billing/provision'
 
 type ProvisioningRow = {
   state: string
   email: string
+  username: string
+  clinic_name: string
+  stripe_session_id: string | null
   supabase_user_id: string | null
   expires_at: string | null
 }
@@ -27,7 +31,7 @@ export async function setPasswordAction(formData: FormData) {
   const supa = getServiceClient()
   const { data: provisioning, error } = await supa
     .from('provisioning_sessions')
-    .select<ProvisioningRow>('state,email,supabase_user_id,expires_at')
+    .select<ProvisioningRow>('state,email,username,clinic_name,stripe_session_id,supabase_user_id,expires_at')
     .eq('state', state)
     .maybeSingle()
 
@@ -58,6 +62,21 @@ export async function setPasswordAction(formData: FormData) {
   const admin = createAdminClient()
   const { error: updateError } = await admin.auth.admin.updateUserById(uid, { password: pw })
   if (updateError) return { ok: false, message: updateError.message }
+
+  if (!provisioning.stripe_session_id) {
+    return { ok: false, message: 'Missing Stripe session. Please restart checkout.' }
+  }
+
+  const provisionResult = await provisionFromStripe({
+    sessionId: provisioning.stripe_session_id,
+    user: { id: uid, email: email ?? undefined, name: null },
+    usernameFromSignup: provisioning.username,
+    pendingSignup: { email },
+  })
+
+  if (!provisionResult.ok) {
+    return { ok: false, message: provisionResult.message ?? 'Provisioning failed. Please contact support.' }
+  }
 
   await supa.from('provisioning_sessions').update({ status: 'password_set' }).eq('state', state)
 

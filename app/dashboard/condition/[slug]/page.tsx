@@ -11,6 +11,7 @@ import HandoutPreviewModal from '@/components/pdf/HandoutPreviewModal'
 import { supabase } from '@/lib/supabase-client'
 import { fetchWithAuth } from '@/lib/auth-fetch'
 import { blobToDataUrl, openPdfInNewTab } from '@/lib/pdf'
+import { useSeatLease } from '@/components/AuthGate'
 
 type Content = {
   overview?: string | null
@@ -59,6 +60,7 @@ const SECTIONS = [
 export default function ConditionBuilderPage() {
   const params = useParams<Params>()
   const slug = params?.slug
+  const { workspaceId } = useSeatLease()
   const [condition, setCondition] = useState<ConditionRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<SelectedSections>(() => ({
@@ -123,17 +125,18 @@ export default function ConditionBuilderPage() {
   useEffect(() => {
     let active = true
     ;(async () => {
-      const { data: sess } = await supabase.auth.getSession()
-      const uid = sess.session?.user?.id
-      if (!active) return
-      if (!uid) {
+      if (!workspaceId) {
+        if (!active) return
         setSubscriptionActive(false)
         return
       }
+
+      setSubscriptionActive(null)
+      
       const { data, error } = await supabase
         .from('subscriptions')
         .select('status, seat_count')
-        .eq('clinic_id', uid)
+        .eq('clinic_id', workspaceId)
         .in('status', ['active', 'trialing'])
         .maybeSingle()
 
@@ -151,21 +154,19 @@ export default function ConditionBuilderPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [workspaceId])
 
   const sectionOptions = useMemo(() => SECTIONS, [])
 
   async function getBranding() {
-    const { data: sess } = await supabase.auth.getSession()
-    const uid = sess.session?.user?.id
-    if (!uid) {
+    if (!workspaceId) {
       return { clinicName: '', footerText: '', logoDataUrl: null as string | null }
     }
 
     const { data } = await supabase
       .from('clinics')
       .select('clinic_name, footer_text, logo_path')
-      .eq('id', uid)
+      .eq('id', workspaceId)
       .maybeSingle()
 
     let logoDataUrl: string | null = null

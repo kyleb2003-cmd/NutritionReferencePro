@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase-client'
 import { fetchWithAuth } from '@/lib/auth-fetch'
+import { useSeatLease } from '@/components/AuthGate'
 
 type ClinicRow = {
   id: string
@@ -12,7 +13,7 @@ type ClinicRow = {
 }
 
 export default function BrandingPage() {
-  const [uid, setUid] = useState<string | null>(null)
+  const { workspaceId } = useSeatLease()
   const [clinicName, setClinicName] = useState('')
   const [footerText, setFooterText] = useState('')
   const [logoPath, setLogoPath] = useState<string | null>(null)
@@ -39,46 +40,56 @@ export default function BrandingPage() {
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      setStatus('Checking session...')
-      const { data: sess } = await supabase.auth.getSession()
-      const user = sess.session?.user
-      if (!user) {
-        setStatus('Please sign in')
+      setStatus('Checking workspace…')
+      setSubscriptionStatus('loading')
+      if (!workspaceId) {
+        if (!mounted) return
+        setSubscriptionStatus('inactive')
+        setStatus('Workspace not linked to this account.')
         return
       }
-      if (!mounted) return
-      setUid(user.id)
+
       setStatus('Checking subscription…')
       const { data: sub, error: subscriptionFetchError } = await supabase
         .from('subscriptions')
         .select('status, seat_count')
-        .eq('clinic_id', user.id)
+        .eq('clinic_id', workspaceId)
         .in('status', ['active', 'trialing'])
         .maybeSingle()
+
+      if (!mounted) return
+
       if (subscriptionFetchError) {
         setSubscriptionError(subscriptionFetchError.message)
         setSubscriptionStatus('inactive')
         setStatus('')
         return
       }
+
       if (!sub) {
         setSubscriptionStatus('inactive')
         setStatus('')
         return
       }
+
       setSubscriptionStatus('active')
       setSubscriptionError(null)
       setStatus('Loading clinic settings...')
+
       const { data, error } = await supabase
         .from('clinics')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', workspaceId)
         .maybeSingle()
+
+      if (!mounted) return
+
       if (error) {
         setError(error.message)
         setStatus('')
         return
       }
+
       const row = data as ClinicRow | null
       if (row) {
         setClinicName(row.clinic_name ?? '')
@@ -88,12 +99,14 @@ export default function BrandingPage() {
           await loadPreview(row.logo_path)
         }
       }
+
       setStatus('')
     })()
+
     return () => {
       mounted = false
     }
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => {
     return () => {
@@ -111,7 +124,7 @@ export default function BrandingPage() {
 
   async function onSelectLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !uid) return
+    if (!file || !workspaceId) return
     setBusy(true)
     setError(null)
     setStatus('Uploading logo...')
@@ -130,7 +143,7 @@ export default function BrandingPage() {
     }
 
     const prev = logoPath
-    const newPath = `${uid}/logo-${Date.now()}.${fileExt(file.type)}`
+    const newPath = `${workspaceId}/logo-${Date.now()}.${fileExt(file.type)}`
     if (prev && prev !== newPath) {
       await supabase.storage.from('branding').remove([prev]).catch(() => {})
     }
@@ -153,12 +166,12 @@ export default function BrandingPage() {
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!uid) return
+    if (!workspaceId) return
     setBusy(true)
     setError(null)
     setStatus('Saving...')
     const payload: ClinicRow = {
-      id: uid,
+      id: workspaceId,
       clinic_name: clinicName ?? '',
       footer_text: footerText ?? '',
       logo_path: logoPath ?? null,
@@ -175,6 +188,10 @@ export default function BrandingPage() {
   }
 
   async function onSubscribe() {
+    if (!workspaceId) {
+      setSubscriptionError('Workspace missing. Please complete setup or contact support.')
+      return
+    }
     setSubscriptionError(null)
     setSubscribeBusy(true)
     try {

@@ -4,12 +4,14 @@ export async function allowAccessBySubStatus(userId: string) {
   const supa = admin()
   const prof = await supa.from('profiles').select('clinic_id').eq('user_id', userId).maybeSingle()
   const clinicId = prof.data?.clinic_id ?? null
-  let cid = clinicId
+  const cid = clinicId
   if (!cid) {
-    const cu = await supa.from('clinic_users').select('clinic_id').eq('user_id', userId).maybeSingle()
-    cid = cu.data?.clinic_id ?? null
+    console.warn('allowAccessBySubStatus: no clinic associated with profile', {
+      userId,
+      profileError: prof.error ?? null,
+    })
+    return { ok: false, reason: 'no_clinic' }
   }
-  if (!cid) return { ok: false, reason: 'no_clinic' }
 
   const sub = await supa.from('subscriptions').select('status').eq('clinic_id', cid).maybeSingle()
   const status = sub.data?.status ?? null

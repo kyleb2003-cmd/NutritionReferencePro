@@ -25,10 +25,15 @@ export async function requireAuthContext(request: NextRequest): Promise<Authenti
   }
 
   const user = data.user
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('clinic_id')
+    .eq('user_id', user.id)
+    .maybeSingle<{ clinic_id: string | null }>()
 
   return {
     userId: user.id,
-    clinicId: user.id,
+    clinicId: profile?.clinic_id ?? null,
     email: user.email ?? null,
   }
 }
