@@ -36,7 +36,7 @@ export default async function PostCheckoutPage({
       // Provision (clinic + subscription + profile). This function should
       // also return the customer's email/name from Stripe checkout.session.
       const result = await provisionFromStripe({
-        checkoutSessionId: sessionId!,
+        sessionId: sessionId!,
         password,
       })
 
