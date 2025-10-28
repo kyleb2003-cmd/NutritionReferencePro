@@ -172,14 +172,17 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
   }, [router])
 
   useEffect(() => {
-    if (!userId) {
-      setWorkspaceId(null)
-      return
-    }
-
     let cancelled = false
 
-    async function loadWorkspace(forUserId: string) {
+    async function syncWorkspace(forUserId: string | null) {
+      if (!forUserId) {
+        await Promise.resolve()
+        if (!cancelled) {
+          setWorkspaceId(null)
+        }
+        return
+      }
+
       try {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -197,13 +200,13 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
 
         if (!clinicId) {
           console.warn('No workspace associated with user profile', { userId: forUserId })
-          setWorkspaceId(null)
           setSeatReady(false)
           setSeatError((prev) =>
             prev && prev !== ''
               ? prev
               : 'No workspace is linked to your account. Redirecting to workspace setup.'
           )
+          setWorkspaceId(null)
           if (pathname !== '/dashboard/workspace-required') {
             router.replace('/dashboard/workspace-required')
           }
@@ -220,16 +223,16 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (cancelled) return
         console.warn('loadWorkspace failed', error)
-        setWorkspaceId(null)
         setSeatReady(false)
         setSeatError('Unable to determine your workspace. Please try again.')
+        setWorkspaceId(null)
         if (pathname !== '/dashboard/workspace-required') {
           router.replace('/dashboard/workspace-required')
         }
       }
     }
 
-    loadWorkspace(userId)
+    void syncWorkspace(userId)
 
     return () => {
       cancelled = true
@@ -240,14 +243,18 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     let heartbeatId: ReturnType<typeof setInterval> | null = null
 
-    if (!workspaceId) {
-      setSeatReady(false)
-      return () => {
-        if (heartbeatId) clearInterval(heartbeatId)
+    async function manageSeat(activeWorkspaceId: string | null) {
+      if (!activeWorkspaceId) {
+        await Promise.resolve()
+        if (!cancelled) {
+          setSeatReady(false)
+        }
+        return
       }
-    }
 
-    async function claimSeat(activeWorkspaceId: string) {
+      await Promise.resolve()
+      if (cancelled) return
+
       setSeatReady(false)
       setSeatError(null)
       await releaseSeat()
@@ -302,7 +309,7 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
       }, 60_000)
     }
 
-    claimSeat(workspaceId)
+    void manageSeat(workspaceId)
 
     const handleBeforeUnload = () => {
       if (!leaseIdRef.current) return

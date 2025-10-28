@@ -18,7 +18,7 @@ export default function SignInPage() {
     if (paramEmail && paramEmail !== id) {
       setId(paramEmail)
     }
-  }, [searchParamsKey, id])
+  }, [searchParams, searchParamsKey, id])
 
   async function resolveEmail(identifier: string): Promise<string> {
     if (identifier.includes('@')) return identifier

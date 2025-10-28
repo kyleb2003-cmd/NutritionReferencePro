@@ -18,6 +18,13 @@ type ProvisioningRow = {
   expires_at: string | null
 }
 
+function isNextRedirectDigest(error: unknown): error is { digest: string } {
+  if (typeof error !== 'object' || error === null) return false
+  if (!('digest' in error)) return false
+  const digest = (error as { digest: unknown }).digest
+  return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')
+}
+
 export async function setPasswordAction(formData: FormData) {
   const pw = String(formData.get('password') || '')
   const pw2 = String(formData.get('confirm') || '')
@@ -86,7 +93,7 @@ export async function setPasswordAction(formData: FormData) {
   try {
     redirect(`/post-checkout/sign-in?state=${encodeURIComponent(state)}`)
   } catch (err) {
-    if (isRedirectError?.(err) || (err && typeof err === 'object' && 'digest' in err && (err as any).digest?.startsWith?.('NEXT_REDIRECT'))) {
+    if (isRedirectError?.(err) || isNextRedirectDigest(err)) {
       throw err
     }
     return { ok: false, message: 'Redirect failed' }
