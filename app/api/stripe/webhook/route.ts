@@ -101,6 +101,13 @@ async function mirrorSubscription(sub: Stripe.Subscription) {
   if (error) {
     throw error
   }
+
+  console.info('[stripe.subscription.sync]', {
+    customerId,
+    clinicId,
+    status: sub?.status ?? null,
+    currentPeriodEnd: cpe,
+  })
 }
 
 function resolveCustomerIdFromSubscription(sub: Stripe.Subscription): string | undefined {

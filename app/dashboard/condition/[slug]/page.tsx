@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase-client'
 import { fetchWithAuth } from '@/lib/auth-fetch'
 import { blobToDataUrl, openPdfInNewTab } from '@/lib/pdf'
 import { useSeatLease } from '@/components/AuthGate'
+import { useEntitlements } from '@/components/EntitlementsProvider'
 
 type Content = {
   overview?: string | null
@@ -61,6 +62,12 @@ export default function ConditionBuilderPage() {
   const params = useParams<Params>()
   const slug = params?.slug
   const { workspaceId } = useSeatLease()
+  const {
+    loading: entitlementsLoading,
+    canExportHandouts,
+    canAccessBranding,
+    refreshEntitlements,
+  } = useEntitlements()
   const [condition, setCondition] = useState<ConditionRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<SelectedSections>(() => ({
@@ -81,7 +88,6 @@ export default function ConditionBuilderPage() {
   const [previewFilename, setPreviewFilename] = useState<string>('handout.pdf')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [opening, setOpening] = useState(false)
-  const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null)
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscribeBusy, setSubscribeBusy] = useState(false)
 
@@ -122,44 +128,10 @@ export default function ConditionBuilderPage() {
     }
   }, [slug])
 
-  useEffect(() => {
-    let active = true
-    ;(async () => {
-      if (!workspaceId) {
-        if (!active) return
-        setSubscriptionActive(false)
-        return
-      }
-
-      setSubscriptionActive(null)
-      
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('status, seat_count')
-        .eq('clinic_id', workspaceId)
-        .in('status', ['active', 'trialing'])
-        .maybeSingle()
-
-      if (!active) return
-
-      if (error) {
-        setSubscriptionError(error.message)
-        setSubscriptionActive(false)
-        return
-      }
-      setSubscriptionError(null)
-      setSubscriptionActive(!!data)
-    })()
-
-    return () => {
-      active = false
-    }
-  }, [workspaceId])
-
   const sectionOptions = useMemo(() => SECTIONS, [])
 
   async function getBranding() {
-    if (!workspaceId) {
+    if (!workspaceId || !canAccessBranding) {
       return { clinicName: '', footerText: '', logoDataUrl: null as string | null }
     }
 
@@ -212,9 +184,12 @@ export default function ConditionBuilderPage() {
       setPatientError('Patient name is required to generate the handout.')
       return
     }
-    if (!subscriptionActive) {
-      setSubscriptionError('An active subscription is required to preview handouts.')
-      return
+    if (!canExportHandouts) {
+      const refreshed = await refreshEntitlements()
+      if (!refreshed.canExportHandouts) {
+        setSubscriptionError('An active subscription is required to preview handouts.')
+        return
+      }
     }
     setPatientError(null)
     setSubscriptionError(null)
@@ -249,9 +224,12 @@ export default function ConditionBuilderPage() {
 
   async function onOpenPdf() {
     if (!condition) return
-    if (!subscriptionActive) {
-      setSubscriptionError('An active subscription is required to preview handouts.')
-      return
+    if (!canExportHandouts) {
+      const refreshed = await refreshEntitlements()
+      if (!refreshed.canExportHandouts) {
+        setSubscriptionError('An active subscription is required to preview handouts.')
+        return
+      }
     }
     setOpening(true)
     try {
@@ -297,6 +275,7 @@ export default function ConditionBuilderPage() {
       setSubscriptionError(message)
     } finally {
       setSubscribeBusy(false)
+      void refreshEntitlements()
     }
   }
 
@@ -308,6 +287,9 @@ export default function ConditionBuilderPage() {
           An active plan unlocks the PDF preview and clinic branding for handouts.
         </p>
       </div>
+      {!workspaceId ? (
+        <p className="text-sm text-amber-600">We couldn’t find a workspace linked to this account yet.</p>
+      ) : null}
       {subscriptionError ? <p className="text-sm text-red-600">{subscriptionError}</p> : null}
       <button
         type="button"
@@ -328,13 +310,13 @@ export default function ConditionBuilderPage() {
           <p className="text-gray-800">
             Use the Handout Builder on the right to pick sections and export a PDF branded for your clinic.
           </p>
-          {subscriptionActive === null ? (
+          {entitlementsLoading ? (
             <p className="text-sm text-gray-700">Checking billing status…</p>
           ) : null}
-          {subscriptionActive === false ? (
+          {!entitlementsLoading && !canExportHandouts ? (
             <div className="xl:hidden">{subscriptionGatePanel}</div>
           ) : null}
-          {subscriptionActive && subscriptionError ? (
+          {canExportHandouts && subscriptionError ? (
             <p className="text-sm text-red-600">{subscriptionError}</p>
           ) : null}
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -392,7 +374,7 @@ export default function ConditionBuilderPage() {
 
       <aside className="hidden xl:block xl:col-start-3 xl:row-start-1">
         <div className="sticky top-24">
-          {subscriptionActive ? (
+          {canExportHandouts ? (
             <div className="space-y-4 rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="font-medium">Handout Builder</h3>
               <div className="space-y-3">
@@ -438,7 +420,7 @@ export default function ConditionBuilderPage() {
                 Your clinic logo and footer will appear automatically when you open the preview.
               </p>
             </div>
-          ) : subscriptionActive === false ? (
+          ) : !entitlementsLoading ? (
             subscriptionGatePanel
           ) : (
             <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700 shadow-sm">
@@ -448,7 +430,7 @@ export default function ConditionBuilderPage() {
         </div>
       </aside>
 
-      {subscriptionActive ? (
+      {canExportHandouts ? (
         <HandoutPreviewModal
           open={previewOpen}
           document={previewDoc}

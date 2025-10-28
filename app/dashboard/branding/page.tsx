@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase-client'
 import { fetchWithAuth } from '@/lib/auth-fetch'
 import { useSeatLease } from '@/components/AuthGate'
+import { useEntitlements } from '@/components/EntitlementsProvider'
 
 type ClinicRow = {
   id: string
@@ -14,16 +15,20 @@ type ClinicRow = {
 
 export default function BrandingPage() {
   const { workspaceId } = useSeatLease()
+  const {
+    loading: entitlementsLoading,
+    canAccessBranding,
+    refreshEntitlements,
+  } = useEntitlements()
   const [clinicName, setClinicName] = useState('')
   const [footerText, setFooterText] = useState('')
   const [logoPath, setLogoPath] = useState<string | null>(null)
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
-  const [status, setStatus] = useState<string>('Loading...')
+  const [status, setStatus] = useState<string>('Loading…')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [subscriptionStatus, setSubscriptionStatus] = useState<'loading' | 'active' | 'inactive'>('loading')
-  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscribeBusy, setSubscribeBusy] = useState(false)
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
 
   async function loadPreview(path: string) {
     const { data, error } = await supabase.storage.from('branding').download(path)
@@ -40,42 +45,24 @@ export default function BrandingPage() {
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      setStatus('Checking workspace…')
-      setSubscriptionStatus('loading')
+      if (entitlementsLoading) {
+        setStatus('Checking subscription…')
+        return
+      }
+
       if (!workspaceId) {
         if (!mounted) return
-        setSubscriptionStatus('inactive')
         setStatus('Workspace not linked to this account.')
         return
       }
 
-      setStatus('Checking subscription…')
-      const { data: sub, error: subscriptionFetchError } = await supabase
-        .from('subscriptions')
-        .select('status, seat_count')
-        .eq('clinic_id', workspaceId)
-        .in('status', ['active', 'trialing'])
-        .maybeSingle()
-
-      if (!mounted) return
-
-      if (subscriptionFetchError) {
-        setSubscriptionError(subscriptionFetchError.message)
-        setSubscriptionStatus('inactive')
+      if (!canAccessBranding) {
+        if (!mounted) return
         setStatus('')
         return
       }
 
-      if (!sub) {
-        setSubscriptionStatus('inactive')
-        setStatus('')
-        return
-      }
-
-      setSubscriptionStatus('active')
-      setSubscriptionError(null)
       setStatus('Loading clinic settings...')
-
       const { data, error } = await supabase
         .from('clinics')
         .select('*')
@@ -106,7 +93,7 @@ export default function BrandingPage() {
     return () => {
       mounted = false
     }
-  }, [workspaceId])
+  }, [workspaceId, canAccessBranding, entitlementsLoading])
 
   useEffect(() => {
     return () => {
@@ -124,7 +111,7 @@ export default function BrandingPage() {
 
   async function onSelectLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !workspaceId) return
+    if (!file || !workspaceId || !canAccessBranding) return
     setBusy(true)
     setError(null)
     setStatus('Uploading logo...')
@@ -166,7 +153,7 @@ export default function BrandingPage() {
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!workspaceId) return
+    if (!workspaceId || !canAccessBranding) return
     setBusy(true)
     setError(null)
     setStatus('Saving...')
@@ -207,10 +194,11 @@ export default function BrandingPage() {
       setSubscriptionError(message)
     } finally {
       setSubscribeBusy(false)
+      void refreshEntitlements()
     }
   }
 
-  if (subscriptionStatus === 'loading') {
+  if (entitlementsLoading) {
     return (
       <main className="p-6">
         <div className="max-w-3xl space-y-4 text-sm text-gray-700">
@@ -220,7 +208,7 @@ export default function BrandingPage() {
     )
   }
 
-  if (subscriptionStatus !== 'active') {
+  if (!canAccessBranding) {
     return (
       <main className="p-6">
         <div className="max-w-3xl space-y-6 rounded-xl border border-dashed border-gray-300 bg-white p-6">
@@ -322,6 +310,7 @@ export default function BrandingPage() {
 
           <div className="flex gap-3 items-center">
             <button
+              type="submit"
               className="inline-flex cursor-pointer items-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 disabled:cursor-not-allowed disabled:bg-gray-600"
               disabled={busy}
             >

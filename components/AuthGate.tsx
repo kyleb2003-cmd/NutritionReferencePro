@@ -12,6 +12,7 @@ import {
 } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
+import { EntitlementsProvider } from '@/components/EntitlementsProvider'
 
 type SeatUsage = {
   used: number
@@ -53,11 +54,13 @@ async function safeRelease(leaseId: string | null) {
 export default function AuthGate({ children }: { children: ReactNode }) {
   if (process.env.NEXT_PUBLIC_GATE_BY_SUB_STATUS === '1') {
     return (
-      <SeatLeaseContext.Provider
-        value={{ leaseId: null, releaseSeat: async () => {}, seatUsage: null, workspaceId: null }}
-      >
-        <StatusGate>{children}</StatusGate>
-      </SeatLeaseContext.Provider>
+      <EntitlementsProvider workspaceId={null}>
+        <SeatLeaseContext.Provider
+          value={{ leaseId: null, releaseSeat: async () => {}, seatUsage: null, workspaceId: null }}
+        >
+          <StatusGate>{children}</StatusGate>
+        </SeatLeaseContext.Provider>
+      </EntitlementsProvider>
     )
   }
 
@@ -337,7 +340,11 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
   )
 
   if (pathname === '/dashboard/workspace-required') {
-    return <SeatLeaseContext.Provider value={contextValue}>{children}</SeatLeaseContext.Provider>
+    return (
+      <EntitlementsProvider workspaceId={workspaceId}>
+        <SeatLeaseContext.Provider value={contextValue}>{children}</SeatLeaseContext.Provider>
+      </EntitlementsProvider>
+    )
   }
 
   if (!ready) {
@@ -367,7 +374,11 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
     return <div className="text-sm text-gray-700">Securing a seat for your session…</div>
   }
 
-  return <SeatLeaseContext.Provider value={contextValue}>{children}</SeatLeaseContext.Provider>
+  return (
+    <EntitlementsProvider workspaceId={workspaceId}>
+      <SeatLeaseContext.Provider value={contextValue}>{children}</SeatLeaseContext.Provider>
+    </EntitlementsProvider>
+  )
 }
 
 function StatusGate({ children }: { children: ReactNode }) {
