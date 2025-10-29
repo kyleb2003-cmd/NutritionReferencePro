@@ -37,9 +37,11 @@ export async function setPasswordAction(formData: FormData) {
   const supa = getServiceClient()
   const { data: provisioning, error } = await supa
     .from('provisioning_sessions')
-    .select<ProvisioningRow>('state,email,username,clinic_name,stripe_session_id,supabase_user_id,expires_at')
+    .select(
+      'state,email,username,clinic_name,stripe_session_id,supabase_user_id,expires_at'
+    )
     .eq('state', state)
-    .maybeSingle()
+    .maybeSingle<ProvisioningRow>()
 
   if (error || !provisioning) {
     return { ok: false, message: 'Provisioning session not found. Please restart checkout.' }
