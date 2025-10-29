@@ -2,7 +2,6 @@
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { isRedirectError } from 'next/dist/client/components/redirect'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getServiceClient } from '@/lib/supabase/clients'
 import { getUserByEmailViaAdmin } from '@/lib/supabase/auth-admin'
@@ -93,7 +92,7 @@ export async function setPasswordAction(formData: FormData) {
   try {
     redirect(`/post-checkout/sign-in?state=${encodeURIComponent(state)}`)
   } catch (err) {
-    if (isRedirectError?.(err) || isNextRedirectDigest(err)) {
+    if (isNextRedirectDigest(err)) {
       throw err
     }
     return { ok: false, message: 'Redirect failed' }
