@@ -37,7 +37,6 @@ export default async function PostCheckoutPage({
       // also return the customer's email/name from Stripe checkout.session.
       const result = await provisionFromStripe({
         sessionId: sessionId!,
-        password,
       })
 
       if (!result.ok) {
