@@ -25,7 +25,7 @@ export default async function PostCheckoutPage({
   // Render the password form on GET; process on POST via server action
   async function provision(formData: FormData) {
     'use server'
-    const supaServer = getSsrClient()
+    const supaServer = await getSsrClient()
 
     try {
       const password = String(formData.get('password') ?? '').trim()
