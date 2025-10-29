@@ -63,7 +63,7 @@ export default function ConditionBuilderPage() {
   const slug = params?.slug
   const { workspaceId } = useSeatLease()
   const {
-    loading: entitlementsLoading,
+    status: entitlementsStatus,
     canExportHandouts,
     canAccessBranding,
     refreshEntitlements,
@@ -304,16 +304,17 @@ export default function ConditionBuilderPage() {
 
   return (
     <>
+      {console.info('[entitlements.condition]', { status: entitlementsStatus, canExportHandouts, canAccessBranding, workspaceId })}
       <div className="space-y-6 lg:col-start-2 lg:row-start-1">
         <div className="flex flex-col gap-2">
           <h2 className="text-2xl font-semibold text-gray-900">{condition?.name ?? 'Loading condition...'}</h2>
           <p className="text-gray-800">
             Use the Handout Builder on the right to pick sections and export a PDF branded for your clinic.
           </p>
-          {entitlementsLoading ? (
+          {entitlementsStatus === 'loading' ? (
             <p className="text-sm text-gray-700">Checking billing status…</p>
           ) : null}
-          {!entitlementsLoading && !canExportHandouts ? (
+          {entitlementsStatus === 'ready' && !canExportHandouts ? (
             <div className="xl:hidden">{subscriptionGatePanel}</div>
           ) : null}
           {canExportHandouts && subscriptionError ? (
@@ -420,7 +421,7 @@ export default function ConditionBuilderPage() {
                 Your clinic logo and footer will appear automatically when you open the preview.
               </p>
             </div>
-          ) : !entitlementsLoading ? (
+          ) : entitlementsStatus === 'ready' ? (
             subscriptionGatePanel
           ) : (
             <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700 shadow-sm">

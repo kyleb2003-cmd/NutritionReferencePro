@@ -16,7 +16,7 @@ type ClinicRow = {
 export default function BrandingPage() {
   const { workspaceId } = useSeatLease()
   const {
-    loading: entitlementsLoading,
+    status: entitlementsStatus,
     canAccessBranding,
     refreshEntitlements,
   } = useEntitlements()
@@ -45,7 +45,7 @@ export default function BrandingPage() {
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      if (entitlementsLoading) {
+      if (entitlementsStatus === 'loading') {
         setStatus('Checking subscription…')
         return
       }
@@ -93,7 +93,7 @@ export default function BrandingPage() {
     return () => {
       mounted = false
     }
-  }, [workspaceId, canAccessBranding, entitlementsLoading])
+  }, [workspaceId, canAccessBranding, entitlementsStatus])
 
   useEffect(() => {
     return () => {
@@ -198,7 +198,7 @@ export default function BrandingPage() {
     }
   }
 
-  if (entitlementsLoading) {
+  if (entitlementsStatus === 'loading') {
     return (
       <main className="p-6">
         <div className="max-w-3xl space-y-4 text-sm text-gray-700">
@@ -208,7 +208,7 @@ export default function BrandingPage() {
     )
   }
 
-  if (!canAccessBranding) {
+  if (entitlementsStatus === 'ready' && !canAccessBranding) {
     return (
       <main className="p-6">
         <div className="max-w-3xl space-y-6 rounded-xl border border-dashed border-gray-300 bg-white p-6">
@@ -234,6 +234,7 @@ export default function BrandingPage() {
 
   return (
     <main className="p-6">
+      {console.info('[entitlements.branding]', { status: entitlementsStatus, canAccessBranding, workspaceId })}
       <div className="max-w-3xl space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Clinic Branding</h1>

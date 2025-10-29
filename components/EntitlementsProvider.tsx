@@ -13,7 +13,7 @@ import {
 import { supabase } from '@/lib/supabase-client'
 
 type EntitlementsState = {
-  loading: boolean
+  status: 'loading' | 'ready' | 'error'
   canExportHandouts: boolean
   canAccessBranding: boolean
   subscriptionStatus: string | null
@@ -28,7 +28,7 @@ type EntitlementsContextValue = EntitlementsState & {
 }
 
 const defaultState: EntitlementsState = {
-  loading: true,
+  status: 'loading',
   canExportHandouts: false,
   canAccessBranding: false,
   subscriptionStatus: null,
@@ -56,11 +56,12 @@ export function EntitlementsProvider({
 }) {
   const [state, setState] = useState<EntitlementsState>({ ...defaultState })
   const loadingRef = useRef(false)
+  const loggedOnceRef = useRef(false)
 
   const fetchEntitlements = useCallback(async (): Promise<EntitlementsState> => {
     if (!workspaceId) {
       const emptyState: EntitlementsState = {
-        loading: true,
+        status: 'loading',
         canExportHandouts: false,
         canAccessBranding: false,
       subscriptionStatus: null,
@@ -80,14 +81,14 @@ export function EntitlementsProvider({
     }
 
     loadingRef.current = true
-    setState((prev) => ({ ...prev, loading: true }))
+    setState((prev) => ({ ...prev, status: 'loading' }))
 
     const { data, error } = await supabase.rpc('get_entitlements')
 
     if (error) {
       console.warn('[entitlements.fetch] failed', { workspaceId, error })
       const failedState: EntitlementsState = {
-        loading: false,
+        status: 'error',
         canExportHandouts: false,
         canAccessBranding: false,
         subscriptionStatus: null,
@@ -102,7 +103,7 @@ export function EntitlementsProvider({
     }
 
     const nextState: EntitlementsState = {
-      loading: false,
+      status: 'ready',
       canExportHandouts: Boolean(data?.can_export_handouts),
       canAccessBranding: Boolean(data?.can_access_branding),
       subscriptionStatus: (data?.subscription_status as string | null) ?? null,
@@ -112,7 +113,7 @@ export function EntitlementsProvider({
       hasMembership: Boolean(data?.has_membership),
     }
 
-    console.info('[entitlements.fetch]', {
+    console.info('[entitlements.fetch(normalized)]', {
       workspaceId: nextState.workspaceId,
       subscriptionStatus: nextState.subscriptionStatus,
       canExportHandouts: nextState.canExportHandouts,
@@ -141,11 +142,35 @@ export function EntitlementsProvider({
       }
     })
 
+    // Refresh when tab becomes visible again (e.g., return from billing portal)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchEntitlements()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
     return () => {
       active = false
       authListener.subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [fetchEntitlements])
+
+  // One-time normalized dump when ready (diagnostic; safe to remove later)
+  useEffect(() => {
+    if (state.status === 'ready' && !loggedOnceRef.current) {
+      loggedOnceRef.current = true
+      console.info('[entitlements.ready]', {
+        canExportHandouts: state.canExportHandouts,
+        canAccessBranding: state.canAccessBranding,
+        subscriptionStatus: state.subscriptionStatus,
+        currentPeriodEnd: state.currentPeriodEnd,
+        leaseRecent: state.leaseRecent,
+        workspaceId: state.workspaceId,
+      })
+    }
+  }, [state])
 
   const value = useMemo<EntitlementsContextValue>(
     () => ({
