@@ -10,7 +10,13 @@ export type ProvisionActionInput = {
 }
 
 export type ProvisionActionResult =
-  | { ok: true; clinicId: string; subscriptionId: string; currentPeriodEnd: string | null }
+  | {
+      ok: true
+      clinicId: string
+      subscriptionId: string
+      currentPeriodEnd: string | null
+      email: string | null
+    }
   | { ok: false; stage: string; code?: string; message: string }
 
 /**

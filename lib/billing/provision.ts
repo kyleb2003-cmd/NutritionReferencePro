@@ -13,7 +13,13 @@ export type ProvisionInput = {
 }
 
 export type ProvisionResult =
-  | { ok: true; clinicId: string; subscriptionId: string; currentPeriodEnd: string | null }
+  | {
+      ok: true
+      clinicId: string
+      subscriptionId: string
+      currentPeriodEnd: string | null
+      email: string | null
+    }
   | { ok: false; stage: string; code?: string; message: string }
 
 type PlainError = { message: string; code?: string }
@@ -208,6 +214,7 @@ export async function provisionFromStripe(input: ProvisionInput): Promise<Provis
     const derivedName = input.user?.name ?? customer?.name ?? session?.customer_details?.name ?? null
 
     let clinicId: string
+    let resolvedEmail: string | null = effectiveEmail ?? null
     try {
       const { data: clinicRow, error: clinicErr } = await db
         .from('clinics')
@@ -299,6 +306,7 @@ export async function provisionFromStripe(input: ProvisionInput): Promise<Provis
           fail('db.profiles.upsert', profileErr)
         }
 
+        resolvedEmail = profile?.email ?? effectiveEmail ?? null
         console.log('[provision] profile.upserted', {
           userId: input.user.id,
           clinicId,
@@ -317,6 +325,7 @@ export async function provisionFromStripe(input: ProvisionInput): Promise<Provis
       clinicId,
       subscriptionId: stripeSubscriptionId,
       currentPeriodEnd: currentPeriodEndIso,
+      email: resolvedEmail,
     }
   } catch (error) {
     const plain = toPlainError(error)
