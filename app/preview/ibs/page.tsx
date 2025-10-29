@@ -2,6 +2,30 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getServiceClient } from '@/lib/supabase/clients'
 
+type ConditionContent = {
+  overview?: string | null
+  mealplan_1400?: string | null
+  mealplan_1800?: string | null
+  mealplan_2200?: string | null
+  mealplan_2600?: string | null
+  shopping_list?: string | null
+  rd_referral?: string | null
+  eat_this_not_that?: string | null
+}
+
+type ConditionCitation = {
+  id: number
+  citation: string
+  url: string | null
+}
+
+type ConditionRow = {
+  name: string
+  slug: string
+  content: ConditionContent[] | null
+  citations: ConditionCitation[] | null
+}
+
 export const revalidate = 300
 
 async function fetchIbsContent() {
@@ -14,7 +38,7 @@ async function fetchIbsContent() {
     .eq('slug', 'ibs')
     .order('sort_order', { referencedTable: 'condition_citations', ascending: true })
     .limit(1)
-    .maybeSingle()
+    .maybeSingle<ConditionRow>()
 
   console.info('[preview.ibs]', {
     ok: !error && !!data,
@@ -40,6 +64,9 @@ export default async function IbsPreviewPage() {
     )
   }
 
+  const content = condition.content?.[0] ?? null
+  const mealPlanKeys = ['mealplan_1400', 'mealplan_1800'] as const
+
   return (
     <main className="mx-auto max-w-4xl space-y-8 p-6">
       <header className="space-y-2 text-center">
@@ -51,9 +78,9 @@ export default async function IbsPreviewPage() {
 
       <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-gray-900">Overview</h2>
-        {condition.content?.overview ? (
+        {content?.overview ? (
           <div className="prose prose-sm max-w-none text-gray-800">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{condition.content.overview}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content.overview}</ReactMarkdown>
           </div>
         ) : (
           <p className="text-sm text-gray-700">Overview content will appear here.</p>
@@ -61,12 +88,12 @@ export default async function IbsPreviewPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        {(['mealplan_1400', 'mealplan_1800'] as const).map((key) => (
+        {mealPlanKeys.map((key) => (
           <div key={key} className="space-y-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900">{key.replace('_', ' ').toUpperCase()}</h3>
-            {condition.content?.[key] ? (
+            {content?.[key] ? (
               <div className="prose prose-sm max-w-none text-gray-800">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{condition.content[key] ?? ''}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{content[key] ?? ''}</ReactMarkdown>
               </div>
             ) : (
               <p className="text-sm text-gray-700">Meal plan details are available in the full product.</p>
@@ -94,7 +121,7 @@ export default async function IbsPreviewPage() {
         <h2 className="text-xl font-semibold text-gray-900">Evidence &amp; Citations</h2>
         {condition.citations && condition.citations.length > 0 ? (
           <ol className="space-y-2 text-sm text-gray-800">
-            {condition.citations.map((citation: { id: number; citation: string; url: string | null }) => (
+            {condition.citations.map((citation) => (
               <li key={citation.id}>
                 {citation.url ? (
                   <a className="text-blue-600 hover:underline" href={citation.url} target="_blank" rel="noreferrer">
