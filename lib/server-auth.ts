@@ -7,7 +7,7 @@ class AuthenticatedRequestError extends Error {
 
 export type AuthenticatedContext = {
   userId: string
-  clinicId: string
+  clinicId: string | null
   email: string | null
 }
 
