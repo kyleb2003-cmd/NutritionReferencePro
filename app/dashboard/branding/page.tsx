@@ -198,6 +198,14 @@ export default function BrandingPage() {
     }
   }
 
+  useEffect(() => {
+    console.info('[entitlements.branding]', {
+      status: entitlementsStatus,
+      canAccessBranding,
+      workspaceId,
+    })
+  }, [entitlementsStatus, canAccessBranding, workspaceId])
+
   if (entitlementsStatus === 'loading') {
     return (
       <main className="p-6">
@@ -234,7 +242,6 @@ export default function BrandingPage() {
 
   return (
     <main className="p-6">
-      {console.info('[entitlements.branding]', { status: entitlementsStatus, canAccessBranding, workspaceId })}
       <div className="max-w-3xl space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Clinic Branding</h1>
