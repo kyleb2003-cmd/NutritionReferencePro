@@ -203,6 +203,34 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
 
         if (!clinicId) {
           console.warn('No workspace associated with user profile', { userId: forUserId })
+          try {
+            const response = await fetch('/api/workspace/ensure', {
+              method: 'POST',
+              credentials: 'include',
+            })
+            if (response.ok) {
+              const payload = (await response.json()) as { ok?: boolean; clinicId?: string | null }
+              if (!cancelled && payload?.ok && payload.clinicId) {
+                setWorkspaceId(payload.clinicId)
+                setSeatError((prev) =>
+                  prev === 'No workspace is linked to your account. Redirecting to workspace setup.'
+                    ? null
+                    : prev
+                )
+                if (pathname === '/dashboard/workspace-required') {
+                  router.replace('/dashboard')
+                }
+                return
+              }
+            } else {
+              console.warn('workspace.ensure returned non-ok response', {
+                status: response.status,
+              })
+            }
+          } catch (ensureError) {
+            console.warn('workspace.ensure failed', ensureError)
+          }
+
           setSeatReady(false)
           setSeatError((prev) =>
             prev && prev !== ''
@@ -297,6 +325,11 @@ function SeatLeaseProvider({ children }: { children: ReactNode }) {
 
       leaseIdRef.current = leaseId
       setLeaseIdState(leaseId)
+      console.info('[seat.claim]', {
+        leaseId,
+        workspaceId: activeWorkspaceId,
+        userId: leaseRow?.user_id ?? null,
+      })
       setSeatReady(true)
       await refreshSeatUsage(activeWorkspaceId)
 

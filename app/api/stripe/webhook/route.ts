@@ -47,6 +47,34 @@ export async function POST(req: Request) {
       return jsonOk()
     }
 
+    if (evt.type === 'invoice.payment_succeeded' || evt.type === 'invoice.payment_failed') {
+      const invoice = evt.data.object as Stripe.Invoice
+      const subscriptionId =
+        typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : invoice.subscription?.id ?? null
+      if (subscriptionId) {
+        try {
+          const sub = await stripe.subscriptions.retrieve(subscriptionId, {
+            expand: ['items.data.price'],
+          })
+          await mirrorSubscription(sub)
+        } catch (error) {
+          console.error('[stripe-webhook] invoice.subscription.retrieve_failed', {
+            invoiceId: invoice.id,
+            subscriptionId,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
+      } else {
+        console.warn('[stripe-webhook] invoice missing subscription', {
+          invoiceId: invoice.id,
+          customer: invoice.customer ?? null,
+        })
+      }
+      return jsonOk()
+    }
+
     if (evt.type === 'customer.subscription.deleted') {
       const sub = evt.data.object as Stripe.Subscription
       const customerId = resolveCustomerIdFromSubscription(sub)
