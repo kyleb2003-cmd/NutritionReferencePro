@@ -1,3 +1,19 @@
+export type DietHandout = {
+  whatItIs: string
+  whoItsFor: string
+  mealPlan: {
+    intro: string
+    days: Array<{ title: string; meals: string[] }>
+  }
+  samplePlate: {
+    description: string
+    imagePath?: string
+  }
+  swaps: Array<{ from: string; to: string }>
+  moreInfo: Array<{ label: string; url: string }>
+  disclaimer: string
+}
+
 export type DietGuide = {
   slug: string
   name: string
@@ -8,6 +24,7 @@ export type DietGuide = {
   gettingStarted: string[]
   moreInfo: Array<{ label: string; url: string }>
   disclaimer: string
+  handout?: DietHandout
 }
 
 const DEFAULT_DISCLAIMER =
@@ -47,15 +64,87 @@ export const dietGuides: DietGuide[] = [
     ],
     moreInfo: [
       {
-        label: 'American Heart Association — Mediterranean Diet Basics',
+        label: 'American Heart Association – Mediterranean eating pattern',
         url: 'https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/nutrition-basics/mediterranean-diet',
       },
       {
-        label: 'Oldways Mediterranean Diet Pyramid',
+        label: 'Harvard T.H. Chan School of Public Health – Mediterranean Diet overview',
+        url: 'https://www.hsph.harvard.edu/nutritionsource/healthy-weight/diet-reviews/mediterranean-diet/',
+      },
+      {
+        label: 'Oldways – Mediterranean Diet resources & pyramid',
         url: 'https://oldwayspt.org/resources/mediterranean-diet-pyramid',
       },
     ],
     disclaimer: DEFAULT_DISCLAIMER,
+    handout: {
+      whatItIs:
+        'The Mediterranean Diet is a flexible eating pattern inspired by traditional cuisines of countries bordering the Mediterranean Sea. It emphasizes minimally processed foods, plants as the foundation of meals, extra-virgin olive oil as the primary fat, routine seafood intake, and moderate dairy. Desserts and red meat are occasional.',
+      whoItsFor:
+        'Adults seeking an evidence-based pattern for heart and metabolic health, weight management, and healthy aging. It’s appropriate for most patients and can be adapted for diabetes, hypertension, and general cardiovascular risk reduction. Patients with food allergies, celiac disease, or chronic kidney disease may need individualized adjustments.',
+      mealPlan: {
+        intro: 'Portions are examples; personalize clinically as needed.',
+        days: [
+          {
+            title: 'Day 1',
+            meals: [
+              'Breakfast: Greek yogurt (plain), berries, chia, drizzle of olive oil',
+              'Lunch: Farro bowl with chickpeas, cucumber, tomato, olives, feta, lemon-olive oil dressing',
+              'Snack: Apple + 1 oz almonds',
+              'Dinner: Baked salmon, roasted zucchini & peppers, small side of whole-grain couscous',
+            ],
+          },
+          {
+            title: 'Day 2',
+            meals: [
+              'Breakfast: Oatmeal cooked with milk, walnuts, sliced banana, cinnamon',
+              'Lunch: Lentil soup, side salad with EVOO & balsamic, whole-grain bread',
+              'Snack: Carrot sticks + hummus',
+              'Dinner: Whole-wheat pasta with tomato-garlic sauce, sautéed spinach, shaved parmesan',
+            ],
+          },
+          {
+            title: 'Day 3',
+            meals: [
+              'Breakfast: Veggie omelet (spinach, tomato, onion) with whole-grain toast',
+              'Lunch: Tuna (or white-bean) salad with olives, capers, arugula, olive oil + lemon; whole-grain crackers',
+              'Snack: Pear + 2 Tbsp mixed seeds',
+              'Dinner: Roasted chicken thighs, herbed potatoes, side salad with olive oil & lemon',
+            ],
+          },
+        ],
+      },
+      samplePlate: {
+        description:
+          'A simple plate visual: ~½ non-starchy vegetables; ~¼ whole grains or starchy vegetables; ~¼ lean protein (fish/legumes/poultry); plus a small portion of nuts/seeds and olive oil for dressing. Water most often; coffee/tea unsweetened; limit sugary drinks.',
+        imagePath: '/assets/diets/mediterranean/plate.svg',
+      },
+      swaps: [
+        { from: 'Butter', to: 'Extra-virgin olive oil' },
+        { from: 'White bread', to: 'Whole-grain bread' },
+        { from: 'Processed deli meat', to: 'Beans, lentils, or grilled poultry/fish' },
+        { from: 'Creamy dressings', to: 'Olive oil + lemon or vinaigrette' },
+        { from: 'Sugary desserts', to: 'Fruit with nuts or yogurt' },
+        { from: 'Chips', to: 'Roasted chickpeas or olives' },
+        { from: 'Refined pasta', to: 'Whole-wheat or legume-based pasta' },
+      ],
+      moreInfo: [
+        {
+          label: 'American Heart Association – Mediterranean eating pattern',
+          url: 'https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/nutrition-basics/mediterranean-diet',
+        },
+        {
+          label: 'Harvard T.H. Chan School of Public Health – Mediterranean Diet overview',
+          url: 'https://www.hsph.harvard.edu/nutritionsource/healthy-weight/diet-reviews/mediterranean-diet/',
+        },
+        {
+          label: 'Oldways – Mediterranean Diet resources & pyramid',
+          url: 'https://oldwayspt.org/resources/mediterranean-diet-pyramid',
+        },
+      ],
+      disclaimer:
+        'This handout is for educational purposes and does not replace medical advice. Patients with specific conditions should follow individualized recommendations from their healthcare team.',
+    },
   },
   {
     slug: 'dash',

@@ -3,55 +3,43 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
 import type { ReactElement } from 'react'
-import HandoutPDF from '@/components/pdf/HandoutPDF'
+import DietHandoutPDF from '@/components/pdf/DietHandoutPDF'
 import { useEntitlements } from '@/components/EntitlementsProvider'
 import { useSeatLease } from '@/components/AuthGate'
 import { supabase } from '@/lib/supabase-client'
 import { blobToDataUrl, openPdfInNewTab } from '@/lib/pdf'
 import { fetchWithAuth } from '@/lib/auth-fetch'
-import type { DietGuide } from '@/content/diets'
+import type { DietGuide, DietHandout } from '@/content/diets'
+
+const MAX_PATIENT_NAME = 60
+const MAX_NOTES = 800
+
+const FALLBACK_WHO_ITS_FOR =
+  'This guide is being refreshed. Provide individualized recommendations based on the patient’s medical history and goals.'
+const FALLBACK_MEAL_NOTE = 'Personalize meals with the care team. Emphasize whole foods, hydration, and variety.'
+
+const FALLBACK_SWAP_TO = 'Choose a clinic-approved alternative'
+
+const defaultBranding = {
+  clinicName: 'Your Clinic',
+  footerText: '',
+  logoDataUrl: null as string | null,
+}
+
+type BrandingDetails = typeof defaultBranding
 
 type DietGuidesViewProps = {
   guides: DietGuide[]
 }
 
-type BrandingDetails = {
-  clinicName: string
-  footerText: string
-  logoDataUrl: string | null
-}
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
 
-const defaultBranding: BrandingDetails = {
-  clinicName: '',
-  footerText: '',
-  logoDataUrl: null,
-}
-
-function sectionMarkdownFromList(items: string[]): string {
-  return items.map((item) => `- ${item}`).join('\n')
-}
-
-function buildPdfSections(diet: DietGuide, practitionerNotes: string): { label: string; text: string }[] {
-  const sections = [
-    { label: 'What it is / Who it\'s for', text: diet.whatItIs },
-    { label: 'Core principles', text: sectionMarkdownFromList(diet.corePrinciples) },
-    { label: 'Sample plate', text: sectionMarkdownFromList(diet.samplePlate) },
-    { label: 'Swaps', text: sectionMarkdownFromList(diet.swaps) },
-    { label: 'Getting started', text: sectionMarkdownFromList(diet.gettingStarted) },
-    {
-      label: 'For more information',
-      text: sectionMarkdownFromList(diet.moreInfo.map((info) => `${info.label} — ${info.url}`)),
-    },
-  ]
-
-  const cleanNotes = practitionerNotes.trim()
-  if (cleanNotes) {
-    sections.push({ label: 'Practitioner notes', text: cleanNotes })
-  }
-
-  sections.push({ label: 'Disclaimer', text: diet.disclaimer })
-
-  return sections
+function formatPrintedDate(date: Date) {
+  return DATE_FORMATTER.format(date)
 }
 
 async function loadBranding(workspaceId: string | null): Promise<BrandingDetails> {
@@ -69,6 +57,7 @@ async function loadBranding(workspaceId: string | null): Promise<BrandingDetails
     return defaultBranding
   }
 
+  const clinicName = data?.clinic_name?.trim() ? data!.clinic_name!.trim() : defaultBranding.clinicName
   let logoDataUrl: string | null = null
   if (data?.logo_path) {
     const result = await supabase.storage.from('branding').download(data.logo_path)
@@ -82,10 +71,73 @@ async function loadBranding(workspaceId: string | null): Promise<BrandingDetails
   }
 
   return {
-    clinicName: data?.clinic_name ?? '',
+    clinicName,
     footerText: data?.footer_text ?? '',
     logoDataUrl,
   }
+}
+
+async function resolveSamplePlateImage(imagePath?: string | null): Promise<string | null> {
+  if (!imagePath) return null
+  try {
+    const response = await fetch(imagePath)
+    if (!response.ok) {
+      console.warn('[diets.samplePlate] unable to fetch image', { imagePath, status: response.status })
+      return null
+    }
+    const blob = await response.blob()
+    return await blobToDataUrl(blob)
+  } catch (error) {
+    console.warn('[diets.samplePlate] failed to load image', { imagePath, error })
+    return null
+  }
+}
+
+function clampValue(value: string, max: number) {
+  if (value.length <= max) return value
+  return value.slice(0, max)
+}
+
+function fallbackHandoutFromGuide(guide: DietGuide): DietHandout {
+  const mealDay = {
+    title: 'Daily focus',
+    meals: guide.corePrinciples.length
+      ? guide.corePrinciples
+      : ['Center meals around plants, lean proteins, and whole grains.'],
+  }
+  const swaps = guide.swaps.length
+    ? guide.swaps.map((swap) => {
+        const parts = swap.split('→')
+        if (parts.length === 2) {
+          return { from: parts[0].trim(), to: parts[1].trim() }
+        }
+        return { from: swap, to: FALLBACK_SWAP_TO }
+      })
+    : [{ from: 'Highly processed snack foods', to: FALLBACK_SWAP_TO }]
+
+  return {
+    whatItIs: guide.whatItIs,
+    whoItsFor: FALLBACK_WHO_ITS_FOR,
+    mealPlan: {
+      intro: FALLBACK_MEAL_NOTE,
+      days: [mealDay],
+    },
+    samplePlate: {
+      description: guide.samplePlate.length
+        ? guide.samplePlate.join(' ')
+        : 'Use half the plate for non-starchy vegetables, a quarter for whole grains or starches, and a quarter for lean protein. Add healthy fats and hydrate with water.',
+    },
+    swaps,
+    moreInfo: guide.moreInfo,
+    disclaimer: guide.disclaimer,
+  }
+}
+
+function resolveHandoutContent(guide: DietGuide): DietHandout {
+  if (guide.handout) {
+    return guide.handout
+  }
+  return fallbackHandoutFromGuide(guide)
 }
 
 function useDietSelection(guides: DietGuide[]) {
@@ -125,7 +177,12 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscribeBusy, setSubscribeBusy] = useState(false)
   const { workspaceId } = useSeatLease()
-  const { status: entitlementsStatus, canExportHandouts, refreshEntitlements } = useEntitlements()
+  const {
+    status: entitlementsStatus,
+    canExportHandouts,
+    canAccessBranding,
+    refreshEntitlements,
+  } = useEntitlements()
 
   useEffect(() => {
     if (selected && lastLoggedSlug.current !== selected.slug) {
@@ -141,7 +198,7 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
 
   const handlePrint = async () => {
     if (!selected) return
-    const trimmedName = patientName.trim()
+    const trimmedName = clampValue(patientName.trim(), MAX_PATIENT_NAME)
     if (!trimmedName) {
       setPatientError('Patient name is required to generate the handout.')
       return
@@ -154,28 +211,40 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
       }
     }
 
+    const cleanNotes = clampValue(practitionerNotes.trim(), MAX_NOTES)
+
     setPatientError(null)
     setSubscriptionError(null)
     setPrinting(true)
     try {
-      const branding = await loadBranding(workspaceId)
-      const printedOn = new Date().toLocaleDateString()
-      const pdfSections = buildPdfSections(selected, practitionerNotes)
+      const handout = resolveHandoutContent(selected)
+      const [branding, samplePlateImage] = await Promise.all([
+        loadBranding(workspaceId),
+        resolveSamplePlateImage(handout.samplePlate.imagePath),
+      ])
+      const printDate = formatPrintedDate(new Date())
+
+      console.info(
+        '[diets.print] diet=%s hasBranding=%s notesLength=%d',
+        selected.slug,
+        String(canAccessBranding),
+        cleanNotes.length,
+      )
+
       const doc = (
-        <HandoutPDF
-          clinicName={branding.clinicName}
-          footerText={branding.footerText}
-          logoDataUrl={branding.logoDataUrl}
-          conditionName={`${selected.name} Diet Guide`}
+        <DietHandoutPDF
+          dietName={selected.name}
           patientName={trimmedName}
-          printedOn={printedOn}
-          sections={pdfSections}
+          practitionerNotes={cleanNotes}
+          clinicName={branding.clinicName}
+          printDate={printDate}
+          handout={handout}
+          hasBranding={canAccessBranding}
+          samplePlateImage={samplePlateImage}
         />
       ) as ReactElement<DocumentProps>
 
-      console.info('[diets.print] diet=%s', selected.slug)
-      const safeSlug = selected.slug.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
-      await openPdfInNewTab(doc, `${safeSlug}-diet-handout.pdf`)
+      await openPdfInNewTab(doc, `${selected.slug.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}-diet-handout.pdf`)
     } catch (error) {
       console.error('[diets.print] failed', error)
       alert('Unable to generate the handout. Please try again.')
@@ -234,6 +303,8 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
       </button>
     </div>
   )
+
+  const notesLength = practitionerNotes.length
 
   return (
     <div className="space-y-6">
@@ -322,6 +393,7 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
             <section className="space-y-2">
               <h3 className="text-lg font-semibold text-gray-900">What it is / Who it’s for</h3>
               <p className="text-sm text-gray-800">{selected.whatItIs}</p>
+              <p className="text-sm text-gray-800">{selected.handout?.whoItsFor ?? FALLBACK_WHO_ITS_FOR}</p>
             </section>
 
             <section className="space-y-2">
@@ -360,19 +432,7 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
               </ul>
             </section>
 
-            <section className="space-y-2">
-              <h3 className="text-lg font-semibold text-gray-900">Getting started</h3>
-              <ul className="space-y-2 text-sm text-gray-800">
-                {selected.gettingStarted.map((item) => (
-                  <li key={item} className="flex gap-2">
-                    <span aria-hidden="true">•</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="space-y-2">
+            <section className="space-y-2 border-t border-gray-200 pt-4">
               <h3 className="text-lg font-semibold text-gray-900">For more information</h3>
               <ul className="space-y-2 text-sm text-gray-800">
                 {selected.moreInfo.map((info) => (
@@ -388,11 +448,6 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
                   </li>
                 ))}
               </ul>
-            </section>
-
-            <section className="space-y-2 border-t border-gray-200 pt-4">
-              <h3 className="text-lg font-semibold text-gray-900">Disclaimer</h3>
-              <p className="text-sm text-gray-700">{selected.disclaimer}</p>
             </section>
           </article>
         </div>
@@ -419,8 +474,9 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
                   <input
                     className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-gray-500"
                     value={patientName}
+                    maxLength={MAX_PATIENT_NAME}
                     onChange={(event) => {
-                      const value = event.target.value
+                      const value = clampValue(event.target.value, MAX_PATIENT_NAME)
                       setPatientName(value)
                       if (value.trim()) {
                         setPatientError(null)
@@ -428,16 +484,21 @@ export default function DietGuidesView({ guides }: DietGuidesViewProps) {
                     }}
                     placeholder="e.g., Jane Smith"
                   />
-                  {patientError ? <p className="mt-1 text-xs text-red-600">{patientError}</p> : null}
+                  <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
+                    <span>{patientError}</span>
+                    <span>{patientName.length}/{MAX_PATIENT_NAME}</span>
+                  </div>
                 </label>
                 <label className="block text-sm font-medium text-gray-900">
                   <span>Practitioner’s notes (optional)</span>
                   <textarea
                     className="mt-1 h-28 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 focus-visible:border-gray-500"
                     value={practitionerNotes}
-                    onChange={(event) => setPractitionerNotes(event.target.value)}
+                    maxLength={MAX_NOTES}
+                    onChange={(event) => setPractitionerNotes(clampValue(event.target.value, MAX_NOTES))}
                     placeholder="Document individualized considerations or follow-up instructions"
                   />
+                  <div className="mt-1 text-right text-xs text-gray-500">{notesLength}/{MAX_NOTES}</div>
                 </label>
                 <button
                   type="button"
