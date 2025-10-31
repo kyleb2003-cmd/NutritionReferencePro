@@ -1,10 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-md p-8 text-sm text-gray-600">Loading sign-in…</div>}>
+      <SignInForm />
+    </Suspense>
+  )
+}
+
+function SignInForm() {
   const searchParams = useSearchParams()
   const prefilledEmail = searchParams.get('email') ?? ''
   const searchParamsKey = searchParams.toString()

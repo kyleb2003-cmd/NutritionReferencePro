@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase-client'
 import { fetchWithAuth } from '@/lib/auth-fetch'
@@ -44,7 +44,7 @@ function formatDate(value: string | null) {
   return date.toLocaleDateString()
 }
 
-export default function BillingPage() {
+function BillingPageInner() {
   const params = useSearchParams()
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
@@ -306,5 +306,13 @@ export default function BillingPage() {
         </form>
       </section>
     </main>
+  )
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-600">Loading billing…</div>}>
+      <BillingPageInner />
+    </Suspense>
   )
 }
