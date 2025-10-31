@@ -113,8 +113,10 @@ export async function POST(request: NextRequest) {
       auto_advance: true,
     })
 
+    const clinicId = ctx.getClinicIdOrThrow()
+
     await upsertSubscription({
-      clinic_id: ctx.clinicId,
+      clinic_id: clinicId,
       stripe_customer_id: stripeCustomerId,
       billing_method: 'invoice',
       status: 'incomplete',
