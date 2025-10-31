@@ -13,11 +13,12 @@ function buildReturnUrl(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuthContext(request)
+    const clinicId = ctx.getClinicIdOrThrow()
 
     const { data: subscription } = await supabaseAdmin
       .from('subscriptions')
       .select('stripe_customer_id')
-      .eq('clinic_id', ctx.clinicId)
+      .eq('clinic_id', clinicId)
       .maybeSingle()
 
     const stripeCustomerId = subscription?.stripe_customer_id

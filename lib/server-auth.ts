@@ -33,15 +33,17 @@ export async function requireAuthContext(request: NextRequest): Promise<Authenti
     .eq('user_id', user.id)
     .maybeSingle<{ clinic_id: string | null }>()
 
+  const clinicId = profile?.clinic_id ?? null
+
   return {
     userId: user.id,
-    clinicId: profile?.clinic_id ?? null,
+    clinicId,
     email: user.email ?? null,
     getClinicIdOrThrow() {
-      if (!this.clinicId) {
+      if (!clinicId) {
         throw new AuthenticatedRequestError('No clinic linked to user')
       }
-      return this.clinicId
+      return clinicId
     },
   }
 }

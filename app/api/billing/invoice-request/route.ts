@@ -49,10 +49,12 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuthContext(request)
     const singleId = await priceId(LOOKUP_SINGLE)
 
+    const clinicId = ctx.getClinicIdOrThrow()
+
     const { data: subscription } = await supabaseAdmin
       .from('subscriptions')
       .select('*')
-      .eq('clinic_id', ctx.clinicId)
+      .eq('clinic_id', clinicId)
       .maybeSingle()
 
     let stripeCustomerId = subscription?.stripe_customer_id ?? null
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
         email: payload.contactEmail ?? ctx.email ?? undefined,
         name: payload.legalName,
         metadata: {
-          clinic_id: ctx.clinicId,
+          clinic_id: clinicId,
           billing_mode: 'invoice',
         },
         address: {
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
         email: payload.contactEmail ?? ctx.email ?? undefined,
         name: payload.legalName,
         metadata: {
-          clinic_id: ctx.clinicId,
+          clinic_id: clinicId,
           billing_mode: 'invoice',
           legal_name: payload.legalName,
           tax_id: payload.taxId ?? '',
@@ -107,13 +109,11 @@ export async function POST(request: NextRequest) {
       collection_method: 'send_invoice',
       days_until_due: 30,
       metadata: {
-        clinic_id: ctx.clinicId,
+        clinic_id: clinicId,
         billing_mode: 'invoice',
       },
       auto_advance: true,
     })
-
-    const clinicId = ctx.getClinicIdOrThrow()
 
     await upsertSubscription({
       clinic_id: clinicId,
