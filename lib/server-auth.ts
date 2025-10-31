@@ -9,6 +9,8 @@ export type AuthenticatedContext = {
   userId: string
   clinicId: string | null
   email: string | null
+
+  getClinicIdOrThrow(): string
 }
 
 export async function requireAuthContext(request: NextRequest): Promise<AuthenticatedContext> {
@@ -35,6 +37,12 @@ export async function requireAuthContext(request: NextRequest): Promise<Authenti
     userId: user.id,
     clinicId: profile?.clinic_id ?? null,
     email: user.email ?? null,
+    getClinicIdOrThrow() {
+      if (!this.clinicId) {
+        throw new AuthenticatedRequestError('No clinic linked to user')
+      }
+      return this.clinicId
+    },
   }
 }
 

@@ -14,12 +14,13 @@ function buildUrl(request: NextRequest, path: string) {
 export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuthContext(request)
+    const clinicId = ctx.getClinicIdOrThrow()
     const singleId = await priceId(LOOKUP_SINGLE)
 
     const { data: existing } = await supabaseAdmin
       .from('subscriptions')
       .select('*')
-      .eq('clinic_id', ctx.clinicId)
+      .eq('clinic_id', clinicId)
       .maybeSingle()
 
     let stripeCustomerId = existing?.stripe_customer_id ?? null
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
       const customer = await stripe.customers.create({
         email: ctx.email ?? undefined,
         metadata: {
-          clinic_id: ctx.clinicId,
+          clinic_id: clinicId,
         },
       })
       stripeCustomerId = customer.id
@@ -36,13 +37,13 @@ export async function POST(request: NextRequest) {
       await stripe.customers.update(stripeCustomerId, {
         email: ctx.email ?? undefined,
         metadata: {
-          clinic_id: ctx.clinicId,
+          clinic_id: clinicId,
         },
       })
     }
 
     await upsertSubscription({
-      clinic_id: ctx.clinicId,
+      clinic_id: clinicId,
       stripe_customer_id: stripeCustomerId,
       billing_method: 'card',
       status: 'incomplete',
@@ -54,11 +55,11 @@ export async function POST(request: NextRequest) {
       customer: stripeCustomerId,
       billing_address_collection: 'auto',
       metadata: {
-        clinic_id: ctx.clinicId,
+        clinic_id: clinicId,
       },
       subscription_data: {
         metadata: {
-          clinic_id: ctx.clinicId,
+          clinic_id: clinicId,
         },
       },
       line_items: [{ price: singleId, quantity: 1 }],
